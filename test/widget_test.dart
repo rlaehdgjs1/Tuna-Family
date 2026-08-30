@@ -107,8 +107,25 @@ void main() {
     expect(provider.members.any((m) => m.id == 'mem_test_grandma'), isFalse);
   });
 
-  test('MusicTrack model and preset list test', () {
+  test('MusicTrack model, start modes, and serialization test', () {
     expect(MusicProvider.presetTracks.length, equals(4));
     expect(MusicProvider.presetTracks.first.title, contains('바다의 멜로디'));
+
+    final track = const MusicTrack(
+      id: 'custom_1',
+      title: '내 노래.mp3',
+      artist: '아티스트',
+      icon: '🎧',
+      url: 'https://example.com/audio.mp3',
+      isCustom: true,
+    );
+
+    final json = track.toJson();
+    final restored = MusicTrack.fromJson(json);
+    expect(restored.id, equals('custom_1'));
+    expect(restored.title, equals('내 노래.mp3'));
+    expect(restored.isCustom, isTrue);
+
+    expect(MusicStartMode.values.length, equals(3));
   });
 }

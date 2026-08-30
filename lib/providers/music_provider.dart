@@ -1,7 +1,20 @@
+import 'dart:convert';
+import 'dart:math';
+import 'dart:io' show File;
 import 'package:flutter/foundation.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+enum MusicStartMode {
+  lastSelected('내가 선택한 음악 유지', '다음 앱 실행 시 마지막으로 선택한 음악이 그대로 재생됩니다.'),
+  random('실행할 때마다 랜덤 재생', '앱을 열 때마다 등록된 음악 중 새로운 곡이 자동으로 재생됩니다.'),
+  cycle('순차 재생', '앱 실행 시 다음 곡으로 넘어가며 재생됩니다.');
+
+  final String label;
+  final String description;
+  const MusicStartMode(this.label, this.description);
+}
 
 class MusicTrack {
   final String id;
@@ -23,18 +36,46 @@ class MusicTrack {
     this.customPath,
     this.isCustom = false,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'artist': artist,
+        'icon': icon,
+        'url': url,
+        'customPath': customPath,
+        'isCustom': isCustom,
+        if (customBytes != null && customBytes!.length < 5 * 1024 * 1024)
+          'customBytes': base64Encode(customBytes!),
+      };
+
+  factory MusicTrack.fromJson(Map<String, dynamic> json) => MusicTrack(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        artist: json['artist'] as String? ?? '내 맞춤 음악',
+        icon: json['icon'] as String? ?? '🎧',
+        url: json['url'] as String?,
+        customPath: json['customPath'] as String?,
+        customBytes: json['customBytes'] != null
+            ? base64Decode(json['customBytes'] as String)
+            : null,
+        isCustom: json['isCustom'] as bool? ?? false,
+      );
 }
 
 class MusicProvider with ChangeNotifier {
   static const String _autoPlayKey = 'tuna_family_music_autoplay';
   static const String _volumeKey = 'tuna_family_music_volume';
   static const String _selectedTrackKey = 'tuna_family_music_selected_track';
+  static const String _customTracksKey = 'tuna_family_custom_tracks_v2';
+  static const String _startModeKey = 'tuna_family_music_start_mode';
 
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   bool _isPlaying = false;
   bool _isAutoPlayEnabled = true;
   double _volume = 0.6;
+  MusicStartMode _startMode = MusicStartMode.lastSelected;
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = Duration.zero;
   String? _errorMessage;
@@ -46,33 +87,37 @@ class MusicProvider with ChangeNotifier {
       title: '바다의 멜로디 (Sea Breeze)',
       artist: '참치패밀리 힐링 사운드',
       icon: '🌊',
-      url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
     ),
     const MusicTrack(
       id: 'track_joyful',
       title: '활기찬 참치패밀리 (Joyful Tuna)',
       artist: '참치패밀리 오리지널',
       icon: '🐟',
-      url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=happy-acoustic-guitar-background-music-122614.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=happy-acoustic-guitar-background-music-122614.mp3',
     ),
     const MusicTrack(
       id: 'track_cozy',
       title: '따뜻한 가족 카페 (Cozy Living Room)',
       artist: '어쿠스틱 패밀리',
       icon: '☕',
-      url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=acoustic-guitar-loop-f-91bpm-14578.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=acoustic-guitar-loop-f-91bpm-14578.mp3',
     ),
     const MusicTrack(
       id: 'track_jeju',
       title: '제주도 가족 여행 (Jeju Island Trip)',
       artist: '우쿨렐레 바캉스',
       icon: '🏖️',
-      url: 'https://cdn.pixabay.com/download/audio/2022/11/06/audio_05ad59cb12.mp3?filename=ukulele-trip-125633.mp3',
+      url:
+          'https://cdn.pixabay.com/download/audio/2022/11/06/audio_05ad59cb12.mp3?filename=ukulele-trip-125633.mp3',
     ),
   ];
 
   late MusicTrack _currentTrack;
-  MusicTrack? _customTrack;
+  List<MusicTrack> _customTracks = [];
 
   MusicProvider() {
     _currentTrack = presetTracks[0];
@@ -83,18 +128,14 @@ class MusicProvider with ChangeNotifier {
   bool get isPlaying => _isPlaying;
   bool get isAutoPlayEnabled => _isAutoPlayEnabled;
   double get volume => _volume;
+  MusicStartMode get startMode => _startMode;
   Duration get currentPosition => _currentPosition;
   Duration get totalDuration => _totalDuration;
   MusicTrack get currentTrack => _currentTrack;
-  MusicTrack? get customTrack => _customTrack;
+  List<MusicTrack> get customTracks => _customTracks;
   String? get errorMessage => _errorMessage;
 
-  List<MusicTrack> get allTracks {
-    if (_customTrack != null) {
-      return [...presetTracks, _customTrack!];
-    }
-    return presetTracks;
-  }
+  List<MusicTrack> get allTracks => [...presetTracks, ..._customTracks];
 
   Future<void> _initAudio() async {
     // Audio Player Listeners
@@ -115,29 +156,79 @@ class MusicProvider with ChangeNotifier {
       notifyListeners();
     });
 
-    // Load Settings
+    // Load Settings & Saved Custom Tracks
     try {
       final prefs = await SharedPreferences.getInstance();
       _isAutoPlayEnabled = prefs.getBool(_autoPlayKey) ?? true;
       _volume = prefs.getDouble(_volumeKey) ?? 0.6;
       await _audioPlayer.setVolume(_volume);
 
+      final modeIndex = prefs.getInt(_startModeKey) ?? 0;
+      if (modeIndex >= 0 && modeIndex < MusicStartMode.values.length) {
+        _startMode = MusicStartMode.values[modeIndex];
+      }
+
+      // Load Saved Custom Tracks
+      final customJson = prefs.getString(_customTracksKey);
+      if (customJson != null) {
+        final List<dynamic> decoded = jsonDecode(customJson);
+        final loadedTracks = <MusicTrack>[];
+        for (final item in decoded) {
+          try {
+            final track = MusicTrack.fromJson(item as Map<String, dynamic>);
+            // If on non-web and path exists, ensure file is still accessible
+            if (!kIsWeb && track.customPath != null) {
+              if (File(track.customPath!).existsSync()) {
+                loadedTracks.add(track);
+              }
+            } else {
+              loadedTracks.add(track);
+            }
+          } catch (_) {}
+        }
+        _customTracks = loadedTracks;
+      }
+
+      // Determine Which Track to Play upon Start
+      final tracks = allTracks;
       final savedTrackId = prefs.getString(_selectedTrackKey);
-      if (savedTrackId != null) {
-        final found =
-            presetTracks.where((t) => t.id == savedTrackId).firstOrNull;
-        if (found != null) {
-          _currentTrack = found;
+
+      if (_startMode == MusicStartMode.random && tracks.length > 1) {
+        final randomIndex = Random().nextInt(tracks.length);
+        _currentTrack = tracks[randomIndex];
+      } else if (_startMode == MusicStartMode.cycle && tracks.length > 1) {
+        final currentIndex = tracks.indexWhere((t) => t.id == savedTrackId);
+        final nextIndex = (currentIndex + 1) % tracks.length;
+        _currentTrack = tracks[nextIndex];
+      } else {
+        // Default: MusicStartMode.lastSelected -> Restore the user's chosen track
+        if (savedTrackId != null) {
+          final found = tracks.where((t) => t.id == savedTrackId).firstOrNull;
+          if (found != null) {
+            _currentTrack = found;
+          }
         }
       }
 
-      // If autoplay is enabled, try playing on launch without blocking
+      // If autoplay is enabled, start playing
       if (_isAutoPlayEnabled) {
         playTrack(_currentTrack);
       }
     } catch (e) {
       if (kDebugMode) {
         print('Music initialization error: $e');
+      }
+    }
+  }
+
+  Future<void> _saveCustomTracks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final encoded = jsonEncode(_customTracks.map((t) => t.toJson()).toList());
+      await prefs.setString(_customTracksKey, encoded);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving custom tracks: $e');
       }
     }
   }
@@ -150,10 +241,12 @@ class MusicProvider with ChangeNotifier {
       await _audioPlayer.stop();
 
       if (track.isCustom) {
-        if (track.customBytes != null) {
-          await _audioPlayer.play(BytesSource(track.customBytes!));
-        } else if (track.customPath != null) {
+        if (!kIsWeb && track.customPath != null && File(track.customPath!).existsSync()) {
           await _audioPlayer.play(DeviceFileSource(track.customPath!));
+        } else if (track.customBytes != null) {
+          await _audioPlayer.play(BytesSource(track.customBytes!));
+        } else if (track.url != null) {
+          await _audioPlayer.play(UrlSource(track.url!));
         }
       } else if (track.url != null) {
         await _audioPlayer.play(UrlSource(track.url!));
@@ -161,6 +254,7 @@ class MusicProvider with ChangeNotifier {
 
       _isPlaying = true;
 
+      // Always remember the selected track so next launch plays this track!
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_selectedTrackKey, track.id);
     } catch (e) {
@@ -198,7 +292,14 @@ class MusicProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // Pick Custom Music File from user's device
+  Future<void> setStartMode(MusicStartMode mode) async {
+    _startMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_startModeKey, mode.index);
+    notifyListeners();
+  }
+
+  // Pick Custom Music File from user's device & save to storage
   Future<bool> pickCustomMusicFile() async {
     try {
       final result = await FilePicker.pickFiles(
@@ -209,20 +310,28 @@ class MusicProvider with ChangeNotifier {
       if (result.isNotEmpty) {
         final file = result.first;
         final trackName = file.name;
-        final bytes = await file.readAsBytes();
+        Uint8List? bytes;
 
-        _customTrack = MusicTrack(
+        try {
+          bytes = await file.readAsBytes();
+        } catch (_) {}
+
+        final newTrack = MusicTrack(
           id: 'track_custom_${DateTime.now().millisecondsSinceEpoch}',
           title: trackName,
-          artist: '내 기기 맞춤 음악 🎵',
+          artist: '내 맞춤 음악 🎵',
           icon: '🎧',
           customBytes: bytes,
           customPath: file.path,
           isCustom: true,
         );
 
-        // Auto-play the custom selected track
-        await playTrack(_customTrack!);
+        // Add to saved custom tracks list
+        _customTracks.insert(0, newTrack);
+        await _saveCustomTracks();
+
+        // Immediately play and save as active track for this and next app launches
+        await playTrack(newTrack);
         notifyListeners();
         return true;
       }
@@ -234,6 +343,18 @@ class MusicProvider with ChangeNotifier {
       notifyListeners();
     }
     return false;
+  }
+
+  // Delete a saved custom music track
+  Future<void> deleteCustomTrack(String trackId) async {
+    _customTracks.removeWhere((t) => t.id == trackId);
+    await _saveCustomTracks();
+
+    if (_currentTrack.id == trackId) {
+      // If deleted track was active, switch to first preset track
+      await playTrack(presetTracks[0]);
+    }
+    notifyListeners();
   }
 
   @override
