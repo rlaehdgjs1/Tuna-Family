@@ -25,7 +25,7 @@ void main() {
     expect(find.text('공지피드'), findsOneWidget);
   });
 
-  test('NoticeProvider CRUD & interaction test', () async {
+  test('NoticeProvider CRUD & interaction test including delete', () async {
     final provider = NoticeProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
@@ -60,6 +60,12 @@ void main() {
 
     await provider.addNotice(newNotice);
     expect(provider.filteredNotices.length, equals(initialCount + 1));
+    expect(provider.getNoticeById('test_notice_999'), isNotNull);
+
+    // Test Delete Notice
+    await provider.deleteNotice('test_notice_999');
+    expect(provider.filteredNotices.length, equals(initialCount));
+    expect(provider.getNoticeById('test_notice_999'), isNull);
   });
 
   test('NoticeProvider Member Add, Update, Delete test', () async {

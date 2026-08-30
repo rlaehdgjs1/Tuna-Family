@@ -6,6 +6,7 @@ import '../utils/app_theme.dart';
 import '../widgets/member_avatar.dart';
 import '../widgets/poll_widget.dart';
 import '../widgets/reaction_bar.dart';
+import '../widgets/delete_notice_dialog.dart';
 import 'notice_form_screen.dart';
 
 class NoticeDetailScreen extends StatefulWidget {
@@ -68,7 +69,28 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     if (notice == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('공지 상세')),
-        body: const Center(child: Text('해당 공지사항을 찾을 수 없습니다.')),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('🐟', style: TextStyle(fontSize: 40)),
+              const SizedBox(height: 12),
+              const Text(
+                '삭제되었거나 존재하지 않는 공지입니다.',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('공지 목록으로 돌아가기'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -117,31 +139,10 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   ),
                 );
               } else if (value == 'delete') {
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('공지 삭제'),
-                    content: const Text('이 공지사항을 정말 삭제하시겠습니까?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('취소'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.error),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          provider.deleteNotice(notice.id);
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('공지가 삭제되었습니다.')),
-                          );
-                        },
-                        child: const Text('삭제'),
-                      ),
-                    ],
-                  ),
+                DeleteNoticeDialog.show(
+                  context,
+                  notice: notice,
+                  onDeleted: () => Navigator.pop(context),
                 );
               }
             },
@@ -150,7 +151,8 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                 value: 'edit',
                 child: Row(
                   children: [
-                    Icon(Icons.edit_rounded, size: 18),
+                    Icon(Icons.edit_rounded,
+                        size: 18, color: AppColors.primary),
                     SizedBox(width: 8),
                     Text('공지 수정'),
                   ],
@@ -163,7 +165,10 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     Icon(Icons.delete_outline_rounded,
                         size: 18, color: AppColors.error),
                     SizedBox(width: 8),
-                    Text('공지 삭제', style: TextStyle(color: AppColors.error)),
+                    Text(
+                      '공지 삭제',
+                      style: TextStyle(color: AppColors.error),
+                    ),
                   ],
                 ),
               ),
@@ -175,11 +180,11 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Category & Pin & Date
+                  // Category & Pin Badge
                   Row(
                     children: [
                       Container(
@@ -197,7 +202,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                               color: notice.category.color,
                               size: 14,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 5),
                             Text(
                               notice.category.label,
                               style: TextStyle(
@@ -221,11 +226,14 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.push_pin_rounded,
-                                  color: AppColors.secondary, size: 13),
+                              Icon(
+                                Icons.push_pin_rounded,
+                                color: AppColors.secondary,
+                                size: 13,
+                              ),
                               SizedBox(width: 3),
                               Text(
-                                '중요 고정',
+                                '중요 고정 공지',
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -236,14 +244,6 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                           ),
                         ),
                       ],
-                      const Spacer(),
-                      Text(
-                        DateFormat('yyyy.MM.dd HH:mm').format(notice.createdAt),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -252,16 +252,16 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   Text(
                     notice.title,
                     style: const TextStyle(
-                      fontSize: 21,
+                      fontSize: 22,
                       fontWeight: FontWeight.w800,
                       color: AppColors.textPrimary,
-                      height: 1.4,
+                      height: 1.3,
                       letterSpacing: -0.5,
                     ),
                   ),
                   const SizedBox(height: 14),
 
-                  // Author Info Row
+                  // Author info & Date & Views
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -271,37 +271,49 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     ),
                     child: Row(
                       children: [
-                        MemberAvatar(
-                          emoji: notice.authorEmoji,
-                          name: notice.authorName,
-                          size: 38,
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Center(
+                            child: Text(
+                              notice.authorEmoji,
+                              style: const TextStyle(fontSize: 20),
+                            ),
+                          ),
                         ),
                         const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              notice.authorName,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                notice.authorName,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '조회수 ${notice.views}회',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
+                              const SizedBox(height: 2),
+                              Text(
+                                '${DateFormat('yyyy년 MM월 dd일 a h:mm', 'ko').format(notice.createdAt)} • 조회 ${notice.views}회',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textMuted,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 20),
 
                   // Notice Content Body
                   Container(
@@ -312,12 +324,13 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppColors.border),
                     ),
-                    child: SelectableText(
+                    child: Text(
                       notice.content,
                       style: const TextStyle(
                         fontSize: 15,
-                        height: 1.7,
                         color: AppColors.textPrimary,
+                        height: 1.65,
+                        letterSpacing: -0.2,
                       ),
                     ),
                   ),
@@ -326,22 +339,23 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                   if (notice.tags.isNotEmpty) ...[
                     const SizedBox(height: 14),
                     Wrap(
-                      spacing: 8,
+                      spacing: 6,
                       runSpacing: 6,
                       children: notice.tags.map((tag) {
                         return Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withValues(alpha: 0.4),
-                            borderRadius: BorderRadius.circular(10),
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.border),
                           ),
                           child: Text(
                             '#$tag',
                             style: const TextStyle(
                               fontSize: 12,
-                              color: AppColors.primary,
                               fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
                             ),
                           ),
                         );
@@ -349,21 +363,20 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                     ),
                   ],
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
 
-                  // --- '확인했어요' (수신 확인) Card ---
+                  // --- '확인했어요' (Acknowledgment) Card ---
                   Container(
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
                       color: isReadByMe
-                          ? AppColors.success.withValues(alpha: 0.06)
-                          : AppColors.primaryLight.withValues(alpha: 0.3),
+                          ? AppColors.success.withValues(alpha: 0.08)
+                          : AppColors.primaryLight.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: isReadByMe
-                            ? AppColors.success.withValues(alpha: 0.4)
-                            : AppColors.primary.withValues(alpha: 0.25),
-                        width: 1.5,
+                            ? AppColors.success.withValues(alpha: 0.3)
+                            : AppColors.primary.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Column(
@@ -374,7 +387,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                             Icon(
                               isReadByMe
                                   ? Icons.check_circle_rounded
-                                  : Icons.mark_email_read_rounded,
+                                  : Icons.info_outline_rounded,
                               color: isReadByMe
                                   ? AppColors.success
                                   : AppColors.primary,
@@ -450,62 +463,44 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                         ),
                         const SizedBox(height: 14),
 
-                        // Read family members avatar row
-                        const Text(
-                          '확인한 가족:',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (readMembers.isEmpty)
+                        // Read family members
+                        if (readMembers.isNotEmpty) ...[
                           const Text(
-                            '아직 확인한 가족이 없습니다.',
+                            '확인한 가족:',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
                             ),
-                          )
-                        else
+                          ),
+                          const SizedBox(height: 6),
                           Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                            spacing: 6,
+                            runSpacing: 6,
                             children: readMembers.map((m) {
                               return Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
+                                    horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                      color: AppColors.success.withValues(alpha: 0.3)),
+                                    color: AppColors.success
+                                        .withValues(alpha: 0.3),
+                                  ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    MemberAvatar(member: m, size: 22),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      m.nickname,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Icon(
-                                      Icons.check_circle_rounded,
-                                      size: 14,
-                                      color: AppColors.success,
-                                    ),
-                                  ],
+                                child: Text(
+                                  '${m.emoji} ${m.nickname}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
                                 ),
                               );
                             }).toList(),
                           ),
+                        ],
 
                         // Unread family members
                         if (unreadMembers.isNotEmpty) ...[
@@ -691,6 +686,58 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                         );
                       },
                     ),
+
+                  const SizedBox(height: 30),
+
+                  // Bottom Action Buttons (Edit & Delete Notice)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    NoticeFormScreen(noticeToEdit: notice),
+                              ),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: const Text('공지 수정'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            DeleteNoticeDialog.show(
+                              context,
+                              notice: notice,
+                              onDeleted: () => Navigator.pop(context),
+                            );
+                          },
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.error,
+                            side: const BorderSide(color: AppColors.error),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              size: 18),
+                          label: const Text('공지 삭제'),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                 ],
               ),

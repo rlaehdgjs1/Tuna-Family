@@ -5,6 +5,8 @@ import '../models/notice.dart';
 import '../providers/notice_provider.dart';
 import '../utils/app_theme.dart';
 import '../screens/notice_detail_screen.dart';
+import '../screens/notice_form_screen.dart';
+import 'delete_notice_dialog.dart';
 
 class NoticeCard extends StatelessWidget {
   final Notice notice;
@@ -165,6 +167,87 @@ class NoticeCard extends StatelessWidget {
                       ],
                     ),
                   ),
+
+                  const SizedBox(width: 4),
+
+                  // Quick Options Menu (Pin / Edit / Delete)
+                  PopupMenuButton<String>(
+                    icon: const Icon(
+                      Icons.more_horiz_rounded,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    tooltip: '공지 메뉴',
+                    onSelected: (value) {
+                      if (value == 'pin') {
+                        provider.togglePin(notice.id);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(notice.isPinned
+                                ? '상단 고정이 해제되었습니다.'
+                                : '공지가 상단에 고정되었습니다 📌'),
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      } else if (value == 'edit') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                NoticeFormScreen(noticeToEdit: notice),
+                          ),
+                        );
+                      } else if (value == 'delete') {
+                        DeleteNoticeDialog.show(context, notice: notice);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'pin',
+                        child: Row(
+                          children: [
+                            Icon(
+                              notice.isPinned
+                                  ? Icons.push_pin_outlined
+                                  : Icons.push_pin_rounded,
+                              size: 18,
+                              color: AppColors.secondary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(notice.isPinned ? '상단 고정 해제' : '상단 고정'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_rounded,
+                                size: 18, color: AppColors.primary),
+                            SizedBox(width: 8),
+                            Text('공지 수정'),
+                          ],
+                        ),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline_rounded,
+                                size: 18, color: AppColors.error),
+                            SizedBox(width: 8),
+                            Text(
+                              '공지 삭제',
+                              style: TextStyle(color: AppColors.error),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -181,135 +264,154 @@ class NoticeCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
 
-              // Snippet
+              // Content snippet
               Text(
-                notice.content.replaceAll('\n', ' '),
+                notice.content,
                 style: const TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary,
-                  height: 1.4,
+                  height: 1.45,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
 
-              // Tags
-              if (notice.tags.isNotEmpty) ...[
+              // Poll or Tags indicator
+              if (notice.poll != null || notice.tags.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
-                  children: notice.tags.map((tag) {
-                    return Text(
-                      '#$tag',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
+                  children: [
+                    if (notice.poll != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.poll_rounded,
+                              size: 13,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '투표 진행 중 (${notice.poll!.totalVotes}명 참여)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    );
-                  }).toList(),
+                    ...notice.tags.map((tag) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.background,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Text(
+                            '#$tag',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )),
+                  ],
                 ),
               ],
 
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               const Divider(height: 1, color: AppColors.divider),
               const SizedBox(height: 10),
 
-              // Bottom footer row: Author, Time, Ack count, Comments & Reactions
+              // Bottom row: Author, Date, Ack count, Comments
               Row(
                 children: [
                   Text(
-                    '${notice.authorEmoji} ${notice.authorName}',
+                    notice.authorEmoji,
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    notice.authorName,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  const Text('•',
+                      style: TextStyle(
+                          color: AppColors.textMuted, fontSize: 12)),
+                  const SizedBox(width: 6),
                   Text(
-                    '•  ${_formatTime(notice.createdAt)}',
+                    _formatTime(notice.createdAt),
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: AppColors.textMuted,
                     ),
                   ),
                   const Spacer(),
 
-                  // Ack status (how many family members confirmed)
+                  // Acknowledged ratio
                   Row(
                     children: [
-                      const Icon(
-                        Icons.done_all_rounded,
+                      Icon(
+                        Icons.people_outline_rounded,
                         size: 14,
-                        color: AppColors.textSecondary,
+                        color: ackCount == totalMemberCount
+                            ? AppColors.success
+                            : AppColors.textSecondary,
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        '$ackCount/$totalMemberCount명',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w500,
+                        '$ackCount/$totalMemberCount명 확인',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: ackCount == totalMemberCount
+                              ? AppColors.success
+                              : AppColors.textSecondary,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(width: 10),
 
-                  // Poll indicator
-                  if (notice.poll != null) ...[
-                    const Icon(
-                      Icons.how_to_vote_rounded,
-                      size: 14,
-                      color: AppColors.accent,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-
                   // Comment count
-                  if (notice.commentCount > 0) ...[
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 13,
-                          color: AppColors.textSecondary,
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 13,
+                        color: AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${notice.comments.length}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textMuted,
                         ),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${notice.commentCount}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-
-                  // Reaction count
-                  if (notice.reactionCount > 0) ...[
-                    Row(
-                      children: [
-                        const Text('❤️', style: TextStyle(fontSize: 11)),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${notice.reactionCount}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ],
