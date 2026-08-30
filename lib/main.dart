@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'providers/notice_provider.dart';
 import 'providers/music_provider.dart';
 import 'screens/home_screen.dart';
 import 'utils/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await initializeDateFormatting('ko_KR', null);
+  } catch (_) {}
   runApp(const TunaFamilyApp());
 }
 

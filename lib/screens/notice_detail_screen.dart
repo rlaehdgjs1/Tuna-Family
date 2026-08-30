@@ -59,6 +59,13 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
     return DateFormat('MM.dd HH:mm').format(dateTime);
   }
 
+  String _formatDetailDate(DateTime dateTime) {
+    final amPm = dateTime.hour < 12 ? '오전' : '오후';
+    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '${dateTime.year}년 ${dateTime.month}월 ${dateTime.day}일 $amPm $hour:$minute';
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<NoticeProvider>();
@@ -301,7 +308,7 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${DateFormat('yyyy년 MM월 dd일 a h:mm', 'ko').format(notice.createdAt)} • 조회 ${notice.views}회',
+                                '${_formatDetailDate(notice.createdAt)} • 조회 ${notice.views}회',
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: AppColors.textMuted,

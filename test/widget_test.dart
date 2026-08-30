@@ -5,6 +5,7 @@ import 'package:tuna_family/providers/notice_provider.dart';
 import 'package:tuna_family/providers/music_provider.dart';
 import 'package:tuna_family/models/notice.dart';
 import 'package:tuna_family/models/member.dart';
+import 'package:tuna_family/screens/notice_detail_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,9 +14,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Tuna Family App renders correctly', (WidgetTester tester) async {
+  testWidgets('Tuna Family App renders correctly and navigates to detail',
+      (WidgetTester tester) async {
     await tester.pumpWidget(const TunaFamilyApp());
-    // Pump frames to let providers async init complete
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
@@ -23,6 +24,18 @@ void main() {
     expect(find.text('참치패밀리'), findsWidgets);
     expect(find.text('가족 공지 및 일정 소통방'), findsOneWidget);
     expect(find.text('공지피드'), findsOneWidget);
+
+    // Find and tap a notice card to open NoticeDetailScreen
+    final firstNoticeCard = find.text('제주도 가족 여행 일정 및 숙소 확정 안내 🏝️');
+    if (firstNoticeCard.evaluate().isNotEmpty) {
+      await tester.tap(firstNoticeCard);
+      await tester.pumpAndSettle();
+
+      // Verify NoticeDetailScreen loads successfully with all elements
+      expect(find.byType(NoticeDetailScreen), findsOneWidget);
+      expect(find.text('공지 상세'), findsOneWidget);
+      expect(find.textContaining('가족 공지 확인 현황'), findsOneWidget);
+    }
   });
 
   test('NoticeProvider CRUD & interaction test including delete', () async {
@@ -44,7 +57,8 @@ void main() {
     // Test Comment Add
     await provider.addComment(firstNotice.id, '테스트 댓글입니다 🐟');
     final noticeWithComment = provider.getNoticeById(firstNotice.id)!;
-    expect(noticeWithComment.comments.any((c) => c.content == '테스트 댓글입니다 🐟'), isTrue);
+    expect(noticeWithComment.comments.any((c) => c.content == '테스트 댓글입니다 🐟'),
+        isTrue);
 
     // Test Create Notice
     final newNotice = Notice(
@@ -98,7 +112,12 @@ void main() {
       colorValue: 0xFFE11D48,
     );
     await provider.updateMember(updatedMember);
-    expect(provider.members.firstWhere((m) => m.id == 'mem_test_grandma').nickname, equals('요리왕할머니 👵'));
+    expect(
+        provider
+            .members
+            .firstWhere((m) => m.id == 'mem_test_grandma')
+            .nickname,
+        equals('요리왕할머니 👵'));
 
     // 3. Delete Member
     final deleteResult = await provider.deleteMember('mem_test_grandma');
