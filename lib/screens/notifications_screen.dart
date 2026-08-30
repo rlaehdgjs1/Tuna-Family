@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/notice_provider.dart';
+import '../services/notification_service.dart';
 import '../utils/app_theme.dart';
 import 'notice_detail_screen.dart';
 
@@ -62,6 +63,25 @@ class NotificationsScreen extends StatelessWidget {
         title: const Text('알림 센터'),
         automaticallyImplyLeading: !isTab,
         actions: [
+          // Push Notification Test Button
+          IconButton(
+            icon: const Icon(Icons.notification_add_outlined),
+            tooltip: '푸시 알림 테스트',
+            onPressed: () async {
+              await NotificationService().showCustomPush(
+                title: '🐟 참치패밀리 실시간 푸시 알림',
+                body: '새로운 공지나 가족 소식이 등록되면 스마트폰 상단 알림바로 즉시 알려드립니다!',
+              );
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('스마트폰 알림바에 푸시 알림이 발송되었습니다 🔔'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            },
+          ),
           if (notifications.isNotEmpty) ...[
             TextButton(
               onPressed: () => provider.markAllNotificationsAsRead(),
@@ -98,39 +118,62 @@ class NotificationsScreen extends StatelessWidget {
       ),
       body: notifications.isEmpty
           ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: const BoxDecoration(
-                      color: AppColors.background,
-                      shape: BoxShape.circle,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        color: AppColors.background,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.notifications_off_outlined,
+                        size: 48,
+                        color: AppColors.textMuted,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.notifications_off_outlined,
-                      size: 48,
-                      color: AppColors.textMuted,
+                    const SizedBox(height: 16),
+                    const Text(
+                      '새로운 알림이 없습니다',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '새로운 알림이 없습니다',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                    const SizedBox(height: 6),
+                    const Text(
+                      '새로운 공지가 등록되면 스마트폰 푸시 알림과 함께 여기에 표시됩니다!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    '가족 공지나 댓글이 등록되면 알려드릴게요!',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary,
+                    const SizedBox(height: 20),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await NotificationService().showCustomPush(
+                          title: '📢 [중요필독] 참치패밀리 푸시 알림 테스트',
+                          body: '새 공지가 등록되면 스마트폰 상단 알림바로 즉시 알려드립니다!',
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('스마트폰 알림바에 푸시 알림이 발송되었습니다 🔔'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.notifications_active_rounded),
+                      label: const Text('푸시 알림 테스트 발송'),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             )
           : ListView.separated(

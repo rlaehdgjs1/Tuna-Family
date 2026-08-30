@@ -8,6 +8,7 @@ import '../models/poll.dart';
 import '../models/comment.dart';
 import '../models/reaction.dart';
 import '../models/notification_item.dart';
+import '../services/notification_service.dart';
 import '../utils/sample_data.dart';
 
 class NoticeProvider with ChangeNotifier {
@@ -214,7 +215,7 @@ class NoticeProvider with ChangeNotifier {
   Future<void> addNotice(Notice notice) async {
     _notices.insert(0, notice);
 
-    // Create a new notification for other members
+    // 1. Create a new in-app notification for other family members
     final notification = NotificationItem(
       id: const Uuid().v4(),
       title: '새로운 공지가 등록되었습니다 📢',
@@ -225,6 +226,11 @@ class NoticeProvider with ChangeNotifier {
       type: 'new_notice',
     );
     _notifications.insert(0, notification);
+
+    // 2. Trigger Real-time System Push Notification on device
+    try {
+      await NotificationService().showNoticePushNotification(notice);
+    } catch (_) {}
 
     await _saveData();
     notifyListeners();

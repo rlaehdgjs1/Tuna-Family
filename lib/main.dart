@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/notice_provider.dart';
 import 'providers/music_provider.dart';
+import 'services/notification_service.dart';
 import 'screens/home_screen.dart';
 import 'utils/app_theme.dart';
 
@@ -11,6 +12,12 @@ void main() async {
   try {
     await initializeDateFormatting('ko_KR', null);
   } catch (_) {}
+
+  // Initialize System Push Notification Service
+  try {
+    await NotificationService().init();
+  } catch (_) {}
+
   runApp(const TunaFamilyApp());
 }
 
