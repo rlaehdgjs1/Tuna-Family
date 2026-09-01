@@ -91,28 +91,12 @@ class MusicProvider with ChangeNotifier {
           'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
     ),
     const MusicTrack(
-      id: 'track_joyful',
-      title: '활기찬 참치패밀리 (Joyful Tuna)',
-      artist: '참치패밀리 오리지널',
-      icon: '🐟',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8c8a73467.mp3?filename=happy-acoustic-guitar-background-music-122614.mp3',
-    ),
-    const MusicTrack(
       id: 'track_cozy',
       title: '따뜻한 가족 카페 (Cozy Living Room)',
       artist: '어쿠스틱 패밀리',
       icon: '☕',
       url:
           'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=acoustic-guitar-loop-f-91bpm-14578.mp3',
-    ),
-    const MusicTrack(
-      id: 'track_jeju',
-      title: '제주도 가족 여행 (Jeju Island Trip)',
-      artist: '우쿨렐레 바캉스',
-      icon: '🏖️',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/11/06/audio_05ad59cb12.mp3?filename=ukulele-trip-125633.mp3',
     ),
   ];
 
