@@ -278,31 +278,31 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                     ),
                     const SizedBox(width: 8),
                     ActionChip(
-                      label: const Text('🚨 긴급 공지'),
+                      label: const Text('📢 중요 공지사항'),
                       onPressed: () => _applyTemplate(
-                        '🚨 [긴급] 가족 긴급 알림 사항 공유',
+                        '📢 [중요필독] 참치패밀리 중요 공지사항 안내',
                         '''가족 구성원 여러분 꼭 확인해 주세요!
 
-[긴급 내용]
+[공지 내용]
 - 내용 입력...
 
-확인하신 분은 수신 확인 버튼을 눌러주세요.''',
-                        NoticeCategory.urgent,
+확인하신 분은 하단의 '확인했어요' 버튼을 눌러주세요.''',
+                        NoticeCategory.important,
                       ),
                     ),
                     const SizedBox(width: 8),
                     ActionChip(
-                      label: const Text('🧾 회비 정산'),
+                      label: const Text('✈️ 가족 여행/행사'),
                       onPressed: () => _applyTemplate(
-                        '🧾 [정산] 가족 행사 회비 결산 및 영수증 내역',
-                        '''가족 모임 총 정산 내역 공유합니다.
+                        '✈️ [모임/행사] 참치패밀리 가족 여행 일정 안내',
+                        '''가족 여행 및 행사 일정 공유합니다!
 
-💰 [지출 내역]
-- 식대: 000,000원
-- 기타: 00,000원
+📍 일시: 
+📍 장소: 
+📍 준비물: 
 
-계좌 입금 부탁드립니다!''',
-                        NoticeCategory.accounting,
+많은 참여 부탁드립니다!''',
+                        NoticeCategory.gathering,
                       ),
                     ),
                   ],

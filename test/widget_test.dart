@@ -68,7 +68,7 @@ void main() {
       authorId: provider.currentMember.id,
       authorName: provider.currentMember.nickname,
       authorEmoji: provider.currentMember.emoji,
-      category: NoticeCategory.general,
+      category: NoticeCategory.important,
       createdAt: DateTime.now(),
     );
 

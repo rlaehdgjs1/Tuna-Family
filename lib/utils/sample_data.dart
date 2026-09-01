@@ -168,12 +168,12 @@ class SampleData {
         authorId: 'mem_1',
         authorName: '참치대장 👑',
         authorEmoji: '👑',
-        category: NoticeCategory.urgent,
+        category: NoticeCategory.gathering,
         isPinned: true,
         views: 28,
         readMemberIds: ['mem_1', 'mem_2', 'mem_5'],
         createdAt: now.subtract(const Duration(hours: 8)),
-        tags: ['긴급', '식사장소', '시간변경'],
+        tags: ['식사장소', '시간변경', '모임'],
         comments: [
           Comment(
             id: 'c_3',
@@ -191,7 +191,7 @@ class SampleData {
       ),
       Notice(
         id: 'notice_3',
-        title: '🧾 [정산] 지난 주말 가족 펜션 여행 정산 영수증 및 잔액 보고',
+        title: '🧾 [필독] 지난 주말 가족 펜션 여행 정산 영수증 및 잔액 보고',
         content: '''지난 주말 가평 펜션 모임 총 정산 내역 및 영수증 결산 내역을 투명하게 공유합니다.
 
 💰 [총 지출 내역]
@@ -212,7 +212,7 @@ class SampleData {
         authorId: 'mem_2',
         authorName: '참치퀸 🌸',
         authorEmoji: '🌸',
-        category: NoticeCategory.accounting,
+        category: NoticeCategory.important,
         isPinned: false,
         views: 42,
         readMemberIds: ['mem_1', 'mem_2', 'mem_3', 'mem_4', 'mem_6'],
@@ -292,7 +292,7 @@ class SampleData {
         authorId: 'mem_1',
         authorName: '참치대장 👑',
         authorEmoji: '👑',
-        category: NoticeCategory.general,
+        category: NoticeCategory.important,
         isPinned: false,
         views: 51,
         readMemberIds: ['mem_1', 'mem_2', 'mem_3', 'mem_4', 'mem_5', 'mem_6'],
