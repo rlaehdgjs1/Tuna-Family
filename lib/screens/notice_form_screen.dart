@@ -42,7 +42,7 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
     _titleController = TextEditingController(text: n?.title ?? '');
     _contentController = TextEditingController(text: n?.content ?? '');
     _tagsController = TextEditingController(text: n?.tags.join(', ') ?? '');
-    _selectedCategory = n?.category ?? NoticeCategory.important;
+    _selectedCategory = n?.category ?? NoticeCategory.notice;
     _isPinned = n?.isPinned ?? false;
 
     if (n?.poll != null) {
@@ -261,16 +261,30 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                 child: Row(
                   children: [
                     ActionChip(
-                      label: const Text('🗓️ 가족모임/식사'),
+                      label: const Text('📢 기본 공지사항'),
                       onPressed: () => _applyTemplate(
-                        '🍽️ [가족모임] 이번 주말 저녁식사 일정 및 장소 투표',
+                        '📢 [공지] 가족 공지사항 안내',
+                        '''참치패밀리 구성원 여러분 안내드립니다!
+
+[공지 내용]
+- 내용 입력...
+
+확인하신 분은 하단의 '확인했어요' 버튼을 눌러주세요.''',
+                        NoticeCategory.notice,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ActionChip(
+                      label: const Text('🗓️ 가족 모임/일정'),
+                      onPressed: () => _applyTemplate(
+                        '🍽️ [공지] 이번 주말 가족 모임 일정 및 메뉴 투표',
                         '''참치패밀리 주말 가족모임 안내입니다!
 
 📍 일시: 이번 주 토요일 18:30
 📍 장소: (아래 투표 결과에 따라 결정)
 
 모두 참석 부탁드리며 원하는 메뉴를 투표해 주세요!''',
-                        NoticeCategory.gathering,
+                        NoticeCategory.notice,
                         hasPoll: true,
                         pollQ: '가족모임 식사 메뉴를 골라주세요!',
                         pollOpts: ['참치 코스요리 🐟', '소고기 구이 🥩', '중식 코스 🥟'],
@@ -278,31 +292,17 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                     ),
                     const SizedBox(width: 8),
                     ActionChip(
-                      label: const Text('📢 중요 공지사항'),
-                      onPressed: () => _applyTemplate(
-                        '📢 [중요필독] 참치패밀리 중요 공지사항 안내',
-                        '''가족 구성원 여러분 꼭 확인해 주세요!
-
-[공지 내용]
-- 내용 입력...
-
-확인하신 분은 하단의 '확인했어요' 버튼을 눌러주세요.''',
-                        NoticeCategory.important,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ActionChip(
                       label: const Text('✈️ 가족 여행/행사'),
                       onPressed: () => _applyTemplate(
-                        '✈️ [모임/행사] 참치패밀리 가족 여행 일정 안내',
+                        '✈️ [공지] 참치패밀리 가족 여행 일정 안내',
                         '''가족 여행 및 행사 일정 공유합니다!
 
 📍 일시: 
 📍 장소: 
 📍 준비물: 
 
-많은 참여 부탁드립니다!''',
-                        NoticeCategory.gathering,
+확인 후 확인 버튼을 눌러주세요!''',
+                        NoticeCategory.notice,
                       ),
                     ),
                   ],

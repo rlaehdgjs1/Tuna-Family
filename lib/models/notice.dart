@@ -5,8 +5,7 @@ import 'reaction.dart';
 
 enum NoticeCategory {
   all('전체', Icons.grid_view_rounded, Color(0xFF64748B)),
-  important('중요필독', Icons.campaign_rounded, Color(0xFFE53935)),
-  gathering('모임/행사', Icons.groups_rounded, Color(0xFF2563EB));
+  notice('공지', Icons.campaign_rounded, Color(0xFFE53935));
 
   final String label;
   final IconData icon;
@@ -15,10 +14,8 @@ enum NoticeCategory {
   const NoticeCategory(this.label, this.icon, this.color);
 
   static NoticeCategory fromString(String value) {
-    return NoticeCategory.values.firstWhere(
-      (e) => e.name == value || e.label == value,
-      orElse: () => NoticeCategory.important,
-    );
+    if (value == 'all' || value == '전체') return NoticeCategory.all;
+    return NoticeCategory.notice;
   }
 }
 
