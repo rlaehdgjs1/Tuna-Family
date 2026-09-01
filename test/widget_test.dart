@@ -147,4 +147,27 @@ void main() {
 
     expect(MusicStartMode.values.length, equals(3));
   });
+
+  test('Notice model imageUrls and videoUrl serialization test', () {
+    final notice = Notice(
+      id: 'media_notice_1',
+      title: '미디어 공지',
+      content: '사진과 영상이 첨부된 공지입니다',
+      authorId: 'mem_1',
+      authorName: '참치대장',
+      authorEmoji: '👑',
+      category: NoticeCategory.notice,
+      createdAt: DateTime.now(),
+      imageUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
+      videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+    );
+
+    final json = notice.toJson();
+    final restored = Notice.fromJson(json);
+
+    expect(restored.id, equals('media_notice_1'));
+    expect(restored.imageUrls.length, equals(2));
+    expect(restored.imageUrls.first, equals('https://example.com/photo1.jpg'));
+    expect(restored.videoUrl, equals('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+  });
 }

@@ -35,6 +35,8 @@ class Notice {
   final List<Comment> comments;
   final List<Reaction> reactions;
   final List<String> tags;
+  final List<String> imageUrls;
+  final String? videoUrl;
 
   const Notice({
     required this.id,
@@ -52,6 +54,8 @@ class Notice {
     this.comments = const [],
     this.reactions = const [],
     this.tags = const [],
+    this.imageUrls = const [],
+    this.videoUrl,
   });
 
   bool isReadBy(String memberId) => readMemberIds.contains(memberId);
@@ -76,6 +80,8 @@ class Notice {
     List<Comment>? comments,
     List<Reaction>? reactions,
     List<String>? tags,
+    List<String>? imageUrls,
+    String? videoUrl,
   }) {
     return Notice(
       id: id ?? this.id,
@@ -93,6 +99,8 @@ class Notice {
       comments: comments ?? this.comments,
       reactions: reactions ?? this.reactions,
       tags: tags ?? this.tags,
+      imageUrls: imageUrls ?? this.imageUrls,
+      videoUrl: videoUrl ?? this.videoUrl,
     );
   }
 
@@ -113,6 +121,8 @@ class Notice {
       'comments': comments.map((c) => c.toJson()).toList(),
       'reactions': reactions.map((r) => r.toJson()).toList(),
       'tags': tags,
+      'imageUrls': imageUrls,
+      'videoUrl': videoUrl,
     };
   }
 
@@ -147,6 +157,11 @@ class Notice {
               ?.map((t) => t as String)
               .toList() ??
           [],
+      imageUrls: (json['imageUrls'] as List<dynamic>?)
+              ?.map((i) => i as String)
+              .toList() ??
+          [],
+      videoUrl: json['videoUrl'] as String?,
     );
   }
 }

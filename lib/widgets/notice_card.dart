@@ -7,6 +7,7 @@ import '../utils/app_theme.dart';
 import '../screens/notice_detail_screen.dart';
 import '../screens/notice_form_screen.dart';
 import 'delete_notice_dialog.dart';
+import 'media_view_helper.dart';
 
 class NoticeCard extends StatelessWidget {
   final Notice notice;
@@ -277,6 +278,15 @@ class NoticeCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
+
+              // Attached Photos Preview
+              if (notice.imageUrls.isNotEmpty)
+                MediaViewHelper.buildCardPhotos(context, notice.imageUrls),
+
+              // Video Link Preview
+              if (notice.videoUrl != null && notice.videoUrl!.isNotEmpty)
+                MediaViewHelper.buildVideoCard(context, notice.videoUrl!,
+                    isCard: true),
 
               // Poll or Tags indicator
               if (notice.poll != null || notice.tags.isNotEmpty) ...[

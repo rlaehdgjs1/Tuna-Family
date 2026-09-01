@@ -7,6 +7,7 @@ import '../widgets/member_avatar.dart';
 import '../widgets/poll_widget.dart';
 import '../widgets/reaction_bar.dart';
 import '../widgets/delete_notice_dialog.dart';
+import '../widgets/media_view_helper.dart';
 import 'notice_form_screen.dart';
 
 class NoticeDetailScreen extends StatefulWidget {
@@ -341,6 +342,15 @@ class _NoticeDetailScreenState extends State<NoticeDetailScreen> {
                       ),
                     ),
                   ),
+
+                  // Attached Photos Gallery
+                  if (notice.imageUrls.isNotEmpty)
+                    MediaViewHelper.buildDetailPhotos(
+                        context, notice.imageUrls),
+
+                  // Attached Video Link Card
+                  if (notice.videoUrl != null && notice.videoUrl!.isNotEmpty)
+                    MediaViewHelper.buildVideoCard(context, notice.videoUrl!),
 
                   // Tags
                   if (notice.tags.isNotEmpty) ...[

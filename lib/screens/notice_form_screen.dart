@@ -1,10 +1,14 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/notice.dart';
 import '../models/poll.dart';
 import '../providers/notice_provider.dart';
 import '../utils/app_theme.dart';
+import '../widgets/media_view_helper.dart';
 
 class NoticeFormScreen extends StatefulWidget {
   final Notice? noticeToEdit;
@@ -24,9 +28,13 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
   late TextEditingController _titleController;
   late TextEditingController _contentController;
   late TextEditingController _tagsController;
+  late TextEditingController _videoUrlController;
 
   late NoticeCategory _selectedCategory;
   late bool _isPinned;
+
+  // Media state
+  final List<String> _imageUrls = [];
 
   // Poll state
   bool _includePoll = false;
@@ -42,8 +50,13 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
     _titleController = TextEditingController(text: n?.title ?? '');
     _contentController = TextEditingController(text: n?.content ?? '');
     _tagsController = TextEditingController(text: n?.tags.join(', ') ?? '');
+    _videoUrlController = TextEditingController(text: n?.videoUrl ?? '');
     _selectedCategory = n?.category ?? NoticeCategory.notice;
     _isPinned = n?.isPinned ?? false;
+
+    if (n != null && n.imageUrls.isNotEmpty) {
+      _imageUrls.addAll(n.imageUrls);
+    }
 
     if (n?.poll != null) {
       _includePoll = true;
@@ -65,6 +78,7 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
     _titleController.dispose();
     _contentController.dispose();
     _tagsController.dispose();
+    _videoUrlController.dispose();
     _pollQuestionController.dispose();
     for (final c in _pollOptionControllers) {
       c.dispose();
@@ -72,12 +86,86 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImages() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.image,
+      );
+      if (result.isNotEmpty) {
+        for (final file in result) {
+          Uint8List? bytes;
+          try {
+            bytes = await file.readAsBytes();
+          } catch (_) {}
+
+          if (bytes != null) {
+            final ext = file.extension?.toLowerCase() ?? 'png';
+            final base64String = base64Encode(bytes);
+            setState(() {
+              _imageUrls.add('data:image/$ext;base64,$base64String');
+            });
+          } else if (file.path != null) {
+            setState(() {
+              _imageUrls.add(file.path!);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('사진 선택 오류: $e')),
+        );
+      }
+    }
+  }
+
+  void _showAddImageUrlDialog() {
+    final urlController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('사진 웹 링크(URL) 추가'),
+        content: TextField(
+          controller: urlController,
+          decoration: const InputDecoration(
+            hintText: 'https://example.com/photo.jpg',
+            labelText: '이미지 URL',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final url = urlController.text.trim();
+              if (url.isNotEmpty) {
+                setState(() => _imageUrls.add(url));
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('추가'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _applyTemplate(String title, String content, NoticeCategory category,
-      {bool hasPoll = false, String? pollQ, List<String>? pollOpts}) {
+      {bool hasPoll = false,
+      String? pollQ,
+      List<String>? pollOpts,
+      String? videoUrl}) {
     setState(() {
       _titleController.text = title;
       _contentController.text = content;
       _selectedCategory = category;
+      if (videoUrl != null) {
+        _videoUrlController.text = videoUrl;
+      }
       if (hasPoll && pollQ != null && pollOpts != null) {
         _includePoll = true;
         _pollQuestionController.text = pollQ;
@@ -116,9 +204,11 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
       if (validOptionTexts.length >= 2) {
         final existingPoll = widget.noticeToEdit?.poll;
         final pollOptions = validOptionTexts.map((text) {
-          // If editing existing option
-          final existingOpt = existingPoll?.options
-              .firstWhere((o) => o.text == text, orElse: () => PollOption(id: const Uuid().v4(), text: text));
+          final existingOpt = existingPoll?.options.firstWhere(
+            (o) => o.text == text,
+            orElse: () =>
+                PollOption(id: const Uuid().v4(), text: text),
+          );
 
           return PollOption(
             id: existingOpt?.id ?? const Uuid().v4(),
@@ -138,6 +228,10 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
       }
     }
 
+    final videoUrl = _videoUrlController.text.trim().isNotEmpty
+        ? _videoUrlController.text.trim()
+        : null;
+
     if (widget.noticeToEdit == null) {
       // Create new Notice
       final newNotice = Notice(
@@ -152,7 +246,11 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
         createdAt: DateTime.now(),
         tags: tags,
         poll: poll,
-        readMemberIds: [currentMember.id], // Creator automatically marked as read
+        imageUrls: List.from(_imageUrls),
+        videoUrl: videoUrl,
+        readMemberIds: [
+          currentMember.id
+        ], // Creator automatically marked as read
       );
 
       provider.addNotice(newNotice);
@@ -171,6 +269,8 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
         isPinned: _isPinned,
         tags: tags,
         poll: poll,
+        imageUrls: List.from(_imageUrls),
+        videoUrl: videoUrl,
       );
 
       provider.updateNotice(updatedNotice);
@@ -188,67 +288,32 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.noticeToEdit != null;
-    final currentMember = context.watch<NoticeProvider>().currentMember;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(isEditing ? '공지 수정' : '새 공지 작성'),
         actions: [
-          TextButton.icon(
+          TextButton(
             onPressed: _saveNotice,
-            icon: const Icon(Icons.check_rounded, color: AppColors.primary),
-            label: Text(
+            child: Text(
               isEditing ? '수정완료' : '등록',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: AppColors.primary,
+                fontSize: 16,
               ),
             ),
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(16),
           children: [
-            // Author info chip
-            Row(
-              children: [
-                const Text(
-                  '작성자: ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    '${currentMember.emoji} ${currentMember.nickname}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Fast Templates Presets (Only when writing new)
+            // Template selector for quick setup
             if (!isEditing) ...[
               const Text(
-                '빠른 공지 템플릿:',
+                '빠른 공지 템플릿',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
@@ -310,50 +375,6 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
               ),
               const SizedBox(height: 16),
             ],
-
-            // Category Selection
-            const Text(
-              '공지 카테고리',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: NoticeCategory.values
-                  .where((c) => c != NoticeCategory.all)
-                  .map((cat) {
-                final isSelected = _selectedCategory == cat;
-                return ChoiceChip(
-                  label: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(cat.icon,
-                          size: 14,
-                          color: isSelected ? Colors.white : cat.color),
-                      const SizedBox(width: 4),
-                      Text(cat.label),
-                    ],
-                  ),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() => _selectedCategory = cat);
-                    }
-                  },
-                  selectedColor: cat.color,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
 
             // Pinned Notice Switch
             Container(
@@ -425,7 +446,7 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _contentController,
-              maxLines: 8,
+              maxLines: 7,
               decoration: const InputDecoration(
                 hintText: '가족들에게 전달할 공지 상세 내용을 작성해 주세요.\n(일정, 장소, 준비물, 전달사항 등)',
                 alignLabelWithHint: true,
@@ -436,6 +457,184 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                 }
                 return null;
               },
+            ),
+            const SizedBox(height: 16),
+
+            // --- Photo Attachment Section (User Request!) ---
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_photo_alternate_rounded,
+                              color: AppColors.primary, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            '사진 첨부 (${_imageUrls.length}장)',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _pickImages,
+                            icon: const Icon(Icons.photo_library_rounded,
+                                size: 16),
+                            label: const Text('내 폰에서 선택'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            icon: const Icon(Icons.link_rounded,
+                                size: 20, color: AppColors.primary),
+                            tooltip: 'URL 링크로 추가',
+                            onPressed: _showAddImageUrlDialog,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (_imageUrls.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 90,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _imageUrls.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          return Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: SizedBox(
+                                  width: 90,
+                                  height: 90,
+                                  child: MediaViewHelper.buildSingleImage(
+                                    _imageUrls[index],
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() => _imageUrls.removeAt(index));
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          Colors.black.withValues(alpha: 0.7),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // --- Video Link Section (User Request!) ---
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.video_library_rounded,
+                          color: Color(0xFFE50914), size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        '동영상 링크 첨부 (YouTube / 웹 영상)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _videoUrlController,
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      hintText:
+                          'https://www.youtube.com/watch?v=... 또는 동영상 URL',
+                      prefixIcon: const Icon(Icons.link_rounded,
+                          color: AppColors.textSecondary, size: 20),
+                      suffixIcon: _videoUrlController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () {
+                                _videoUrlController.clear();
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: AppColors.background,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  // Real-time video preview
+                  if (_videoUrlController.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    MediaViewHelper.buildVideoCard(
+                      context,
+                      _videoUrlController.text.trim(),
+                      isCard: true,
+                    ),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -452,8 +651,9 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
             TextFormField(
               controller: _tagsController,
               decoration: const InputDecoration(
-                hintText: '예: 가족여행, 제주도, 필독',
-                prefixIcon: Icon(Icons.tag_rounded, color: AppColors.textSecondary),
+                hintText: '예: 가족모임, 공지, 식사',
+                prefixIcon:
+                    Icon(Icons.tag_rounded, color: AppColors.textSecondary),
               ),
             ),
             const SizedBox(height: 20),
@@ -492,7 +692,8 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                       ),
                       Switch(
                         value: _includePoll,
-                        onChanged: (val) => setState(() => _includePoll = val),
+                        onChanged: (val) =>
+                            setState(() => _includePoll = val),
                       ),
                     ],
                   ),
@@ -553,16 +754,19 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                                     hintText: '선택지 ${index + 1}',
                                     filled: true,
                                     fillColor: Colors.white,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 10),
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(
+                                            horizontal: 12, vertical: 10),
                                   ),
                                 ),
                               ),
                               if (_pollOptionControllers.length > 2) ...[
                                 const SizedBox(width: 6),
                                 IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline,
-                                      color: AppColors.error, size: 20),
+                                  icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      color: AppColors.error,
+                                      size: 20),
                                   onPressed: () {
                                     setState(() {
                                       _pollOptionControllers[index].dispose();
@@ -580,7 +784,8 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                       TextButton.icon(
                         onPressed: () {
                           setState(() {
-                            _pollOptionControllers.add(TextEditingController());
+                            _pollOptionControllers
+                                .add(TextEditingController());
                           });
                         },
                         icon: const Icon(Icons.add_rounded, size: 18),
@@ -599,14 +804,14 @@ class _NoticeFormScreenState extends State<NoticeFormScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: Text(
-                isEditing ? '공지 수정 완료' : '공지 등록하기 🐟',
+                isEditing ? '공지 수정 완료' : '공지 등록하기 📢',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 30),
           ],
         ),
       ),

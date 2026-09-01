@@ -102,6 +102,11 @@ class SampleData {
         readMemberIds: ['mem_1', 'mem_2', 'mem_3', 'mem_4'],
         createdAt: now.subtract(const Duration(hours: 3)),
         tags: ['가족여행', '제주도', '필독', '투표'],
+        imageUrls: [
+          'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?w=800&q=80',
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
+        ],
+        videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
         poll: Poll(
           id: 'poll_1',
           question: '제주도 가족여행 참석 여부를 알려주세요! ✈️',

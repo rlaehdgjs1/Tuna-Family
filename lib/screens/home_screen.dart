@@ -199,38 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
         // Search Bar & Stats Header
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Column(
               children: [
-                // Search TextField
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) => provider.setSearchQuery(value),
-                  decoration: InputDecoration(
-                    hintText: '공지 제목, 내용, 태그 검색...',
-                    hintStyle: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textMuted,
-                    ),
-                    prefixIcon: const Icon(Icons.search_rounded,
-                        color: AppColors.textSecondary, size: 20),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              provider.setSearchQuery('');
-                            },
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
                 // Status summary chip bar
                 Row(
                   children: [
