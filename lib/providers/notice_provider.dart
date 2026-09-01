@@ -13,8 +13,8 @@ import '../utils/sample_data.dart';
 
 class NoticeProvider with ChangeNotifier {
   static const String _noticesKey = 'tuna_family_notices_v3';
-  static const String _membersKey = 'tuna_family_members_v1';
-  static const String _currentMemberKey = 'tuna_family_current_member_v1';
+  static const String _membersKey = 'tuna_family_members_v4';
+  static const String _currentMemberKey = 'tuna_family_current_member_v4';
   static const String _notificationsKey = 'tuna_family_notifications_v3';
 
   List<Notice> _notices = [];
@@ -187,6 +187,23 @@ class NoticeProvider with ChangeNotifier {
       _members[index] = updatedMember;
       if (_currentMember.id == updatedMember.id) {
         _currentMember = updatedMember;
+      }
+      await _saveData();
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateMemberGrade(String memberId, MemberGrade grade) async {
+    final index = _members.indexWhere((m) => m.id == memberId);
+    if (index != -1) {
+      final member = _members[index];
+      final updated = member.copyWith(
+        grade: grade,
+        isAdmin: grade == MemberGrade.admin,
+      );
+      _members[index] = updated;
+      if (_currentMember.id == memberId) {
+        _currentMember = updated;
       }
       await _saveData();
       notifyListeners();

@@ -111,7 +111,7 @@ class AuthProvider with ChangeNotifier {
     return null; // Success
   }
 
-  /// Register new user account (First account registered automatically receives Admin permission)
+  /// Register new user account (New members default to MemberGrade.general '일반', first user becomes admin)
   Future<String?> register({
     required String name,
     required String phoneNumber,
@@ -147,7 +147,7 @@ class AuthProvider with ChangeNotifier {
         : name.trim();
     final memberRole = (role != null && role.trim().isNotEmpty)
         ? role.trim()
-        : (isFirstUser ? '총괄 관리자' : '가족 구성원');
+        : (isFirstUser ? '총괄 관리자' : '일반 회원');
 
     final newMember = Member(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
@@ -159,6 +159,7 @@ class AuthProvider with ChangeNotifier {
       emoji: emoji,
       colorValue: colorValue,
       isAdmin: isFirstUser, // First registered user is Admin!
+      grade: isFirstUser ? MemberGrade.admin : MemberGrade.general, // Default grade: '일반'
       createdAt: DateTime.now(),
     );
 
@@ -193,6 +194,36 @@ class AuthProvider with ChangeNotifier {
     return '삭제할 회원을 찾을 수 없습니다.';
   }
 
+  /// Admin updates a member's Grade (등급 조절: 관리자 / 우수회원 / 정회원 / 일반)
+  Future<String?> updateMemberGrade(
+      String targetMemberId, MemberGrade newGrade) async {
+    if (_currentUser == null || !_currentUser!.isAdmin) {
+      return '관리자 권한이 필요합니다.';
+    }
+
+    final index = _accounts.indexWhere((a) => a.id == targetMemberId);
+    if (index != -1) {
+      final member = _accounts[index];
+      final isAdminRole = (newGrade == MemberGrade.admin);
+      final updated = member.copyWith(
+        grade: newGrade,
+        isAdmin: isAdminRole,
+      );
+      _accounts[index] = updated;
+
+      if (_currentUser?.id == targetMemberId) {
+        _currentUser = updated;
+        await _saveSession();
+      }
+
+      await _saveAccounts();
+      notifyListeners();
+      return null; // Success
+    }
+
+    return '해당 회원을 찾을 수 없습니다.';
+  }
+
   /// Admin toggles another member's admin role
   Future<String?> toggleAdminRole(String targetMemberId) async {
     if (_currentUser == null || !_currentUser!.isAdmin) {
@@ -202,7 +233,11 @@ class AuthProvider with ChangeNotifier {
     final index = _accounts.indexWhere((a) => a.id == targetMemberId);
     if (index != -1) {
       final member = _accounts[index];
-      final updated = member.copyWith(isAdmin: !member.isAdmin);
+      final newIsAdmin = !member.isAdmin;
+      final updated = member.copyWith(
+        isAdmin: newIsAdmin,
+        grade: newIsAdmin ? MemberGrade.admin : MemberGrade.general,
+      );
       _accounts[index] = updated;
 
       if (_currentUser?.id == targetMemberId) {

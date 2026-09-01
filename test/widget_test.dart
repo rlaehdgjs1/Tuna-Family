@@ -32,14 +32,14 @@ void main() {
   });
 
   test(
-      'AuthProvider admin privileges, member registration, and admin member deletion test',
+      'AuthProvider grade system (일반 default, 관리자, 등급 조절) and member deletion test',
       () async {
     final auth = AuthProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
     expect(auth.isLoggedIn, isFalse);
 
-    // 1. First registered user automatically becomes ADMIN
+    // 1. First registered user automatically becomes ADMIN (MemberGrade.admin)
     final adminRegError = await auth.register(
       name: '김참치',
       phoneNumber: '010-1111-2222',
@@ -53,61 +53,62 @@ void main() {
     expect(adminRegError, isNull);
     expect(auth.isLoggedIn, isTrue);
     expect(auth.currentUser!.isAdmin, isTrue);
+    expect(auth.currentUser!.grade, equals(MemberGrade.admin));
     expect(auth.isCurrentUserAdmin, isTrue);
 
-    // 2. Second registered user is a NORMAL member (isAdmin: false)
+    // 2. Second registered user gets DEFAULT grade: MemberGrade.general (일반)
     await auth.logout();
     final userRegError = await auth.register(
-      name: '김악성',
+      name: '김푸름',
       phoneNumber: '010-9999-8888',
       password: 'userPass123',
-      nickname: '불청객참치 ⚠️',
-      role: '일반 회원',
-      emoji: '🐟',
-      colorValue: 0xFF475569,
+      emoji: '🏄‍♂️',
+      colorValue: 0xFF0284C7,
     );
 
     expect(userRegError, isNull);
     expect(auth.currentUser!.isAdmin, isFalse);
+    expect(auth.currentUser!.grade, equals(MemberGrade.general)); // 일반 등급
     expect(auth.isCurrentUserAdmin, isFalse);
 
-    final targetBadUserId = auth.currentUser!.id;
+    final regularUserId = auth.currentUser!.id;
 
-    // 3. Normal user attempts to delete a member -> REJECTED
-    final nonAdminDeleteError =
-        await auth.deleteAccountByAdmin(targetBadUserId);
-    expect(nonAdminDeleteError, contains('관리자 권한이 있는 사용자만'));
+    // 3. Normal user attempts to adjust grade or delete -> REJECTED
+    final nonAdminGradeError =
+        await auth.updateMemberGrade(regularUserId, MemberGrade.vip);
+    expect(nonAdminGradeError, contains('관리자 권한'));
 
-    // 4. Log back in as ADMIN and delete the bad member account
+    // 4. Log back in as ADMIN and adjust regular user's grade to VIP (우수회원)
     await auth.logout();
     await auth.login('010-1111-2222', 'adminPass123');
     expect(auth.isCurrentUserAdmin, isTrue);
 
-    // Admin attempts to delete own logged-in account -> PREVENTED
-    final selfDeleteError =
-        await auth.deleteAccountByAdmin(auth.currentUser!.id);
-    expect(selfDeleteError, contains('현재 로그인 중인 본인 관리자 계정은 삭제할 수 없습니다'));
+    final gradeChangeSuccess =
+        await auth.updateMemberGrade(regularUserId, MemberGrade.vip);
+    expect(gradeChangeSuccess, isNull);
 
-    // 5. Test registration without nickname & role (simplified sign up)
-    final simpleRegError = await auth.register(
-      name: '이바다',
-      phoneNumber: '010-3333-4444',
-      password: 'seaPass123',
-      emoji: '🌸',
-      colorValue: 0xFFE11D48,
-    );
-    expect(simpleRegError, isNull);
-    expect(auth.currentUser!.nickname, equals('이바다'));
-    expect(auth.currentUser!.role, equals('가족 구성원'));
+    final updatedUser = auth.accounts.firstWhere((a) => a.id == regularUserId);
+    expect(updatedUser.grade, equals(MemberGrade.vip));
+    expect(updatedUser.isAdmin, isFalse);
+
+    // 5. Admin deletes member -> SUCCESS
+    final adminDeleteSuccess = await auth.deleteAccountByAdmin(regularUserId);
+    expect(adminDeleteSuccess, isNull);
+    expect(auth.accounts.any((a) => a.id == regularUserId), isFalse);
   });
 
   test(
-      'NoticeProvider starts with 0 notices and handles notice creation & notification',
+      'NoticeProvider starts with only 1 admin member (참치대장) and 0 notices',
       () async {
     final provider = NoticeProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
-    expect(provider.members.isNotEmpty, isTrue);
+    // Only 1 admin member (참치대장) exists initially
+    expect(provider.members.length, equals(1));
+    expect(provider.members.first.nickname, contains('참치대장'));
+    expect(provider.members.first.isAdmin, isTrue);
+    expect(provider.members.first.grade, equals(MemberGrade.admin));
+
     // Verified 0 initial notices
     expect(provider.filteredNotices.isEmpty, isTrue);
 
@@ -147,13 +148,13 @@ void main() {
     expect(provider.getNoticeById('test_notice_999'), isNull);
   });
 
-  test('NoticeProvider Member Add, Update, Delete test', () async {
+  test('NoticeProvider Member Add, Update Grade, Delete test', () async {
     final provider = NoticeProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
     final initialMemberCount = provider.members.length;
 
-    // 1. Add Member
+    // 1. Add Member with General Grade (일반)
     const newMember = Member(
       id: 'mem_test_grandma',
       name: '김순자',
@@ -162,28 +163,18 @@ void main() {
       emoji: '👵',
       colorValue: 0xFFE11D48,
       isAdmin: false,
+      grade: MemberGrade.general,
     );
 
     await provider.addMember(newMember);
     expect(provider.members.length, equals(initialMemberCount + 1));
     expect(provider.members.any((m) => m.id == 'mem_test_grandma'), isTrue);
 
-    // 2. Update Member
-    const updatedMember = Member(
-      id: 'mem_test_grandma',
-      name: '김순자',
-      nickname: '요리왕할머니 👵',
-      role: '할머니 / 수석셰프',
-      emoji: '👵',
-      colorValue: 0xFFE11D48,
-      isAdmin: false,
-    );
-
-    await provider.updateMember(updatedMember);
+    // 2. Update Member Grade to Regular (정회원)
+    await provider.updateMemberGrade('mem_test_grandma', MemberGrade.regular);
     final found =
         provider.members.firstWhere((m) => m.id == 'mem_test_grandma');
-    expect(found.nickname, equals('요리왕할머니 👵'));
-    expect(found.role, equals('할머니 / 수석셰프'));
+    expect(found.grade, equals(MemberGrade.regular));
 
     // 3. Delete Member
     final deleteResult = await provider.deleteMember('mem_test_grandma');

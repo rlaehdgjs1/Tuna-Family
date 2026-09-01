@@ -124,37 +124,38 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
-                                    if (member.isAdmin) ...[
                                       const SizedBox(width: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFFEF3C7),
+                                          color: Color(member.grade.bgValue),
                                           borderRadius:
                                               BorderRadius.circular(6),
                                           border: Border.all(
-                                              color: const Color(0xFFFCD34D)),
+                                            color: Color(member.grade.colorValue)
+                                                .withValues(alpha: 0.35),
+                                          ),
                                         ),
-                                        child: const Row(
+                                        child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Icon(Icons.shield_rounded,
-                                                size: 11,
-                                                color: Color(0xFFD97706)),
-                                            SizedBox(width: 2),
+                                            Text(member.grade.icon,
+                                                style: const TextStyle(
+                                                    fontSize: 10)),
+                                            const SizedBox(width: 2),
                                             Text(
-                                              '관리자',
+                                              member.grade.label,
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
-                                                color: Color(0xFF92400E),
+                                                color: Color(
+                                                    member.grade.colorValue),
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
                                     if (isSelected) ...[
                                       const SizedBox(width: 8),
                                       Container(

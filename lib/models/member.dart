@@ -1,6 +1,35 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
+/// Member Tier / Grade System (등급제)
+enum MemberGrade {
+  admin('관리자', '👑', 0xFFD97706, 0xFFFEF3C7),
+  vip('우수회원', '⭐', 0xFF7C3AED, 0xFFEDE9FE),
+  regular('정회원', '🔷', 0xFF0284C7, 0xFFE0F2FE),
+  general('일반', '🌱', 0xFF16A34A, 0xFFDCFCE7);
+
+  final String label;
+  final String icon;
+  final int colorValue;
+  final int bgValue;
+
+  const MemberGrade(this.label, this.icon, this.colorValue, this.bgValue);
+
+  static MemberGrade fromString(String? val) {
+    if (val == null) return MemberGrade.general;
+    for (final g in MemberGrade.values) {
+      if (g.name == val || g.label == val) return g;
+    }
+    if (val == '관리자' || val == 'admin') return MemberGrade.admin;
+    if (val == '우수' || val == '우수회원' || val == 'vip') return MemberGrade.vip;
+    if (val == '정회원' || val == 'regular') return MemberGrade.regular;
+    if (val == '일반' || val == '일반회원' || val == 'general') {
+      return MemberGrade.general;
+    }
+    return MemberGrade.general;
+  }
+}
+
 class Member {
   final String id;
   final String name;
@@ -11,6 +40,7 @@ class Member {
   final String? phoneNumber;
   final String? passwordHash;
   final bool isAdmin;
+  final MemberGrade grade;
   final DateTime? createdAt;
 
   const Member({
@@ -23,6 +53,7 @@ class Member {
     this.phoneNumber,
     this.passwordHash,
     this.isAdmin = false,
+    this.grade = MemberGrade.general,
     this.createdAt,
   });
 
@@ -88,6 +119,7 @@ class Member {
     String? phoneNumber,
     String? passwordHash,
     bool? isAdmin,
+    MemberGrade? grade,
     DateTime? createdAt,
   }) {
     return Member(
@@ -100,6 +132,7 @@ class Member {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       passwordHash: passwordHash ?? this.passwordHash,
       isAdmin: isAdmin ?? this.isAdmin,
+      grade: grade ?? this.grade,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -114,6 +147,7 @@ class Member {
         'phoneNumber': phoneNumber,
         'passwordHash': passwordHash,
         'isAdmin': isAdmin,
+        'grade': grade.name,
         'createdAt': createdAt?.toIso8601String(),
       };
 
@@ -127,6 +161,11 @@ class Member {
         phoneNumber: json['phoneNumber'] as String?,
         passwordHash: json['passwordHash'] as String?,
         isAdmin: json['isAdmin'] as bool? ?? false,
+        grade: json['grade'] != null
+            ? MemberGrade.fromString(json['grade'] as String)
+            : ((json['isAdmin'] as bool? ?? false)
+                ? MemberGrade.admin
+                : MemberGrade.general),
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)
             : null,

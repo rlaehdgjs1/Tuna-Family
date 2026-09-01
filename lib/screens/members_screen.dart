@@ -41,6 +41,211 @@ class MembersScreen extends StatelessWidget {
     0xFF4F46E5, // Indigo
   ];
 
+  Widget _buildGradeBadge(MemberGrade grade, {bool showLabel = true}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Color(grade.bgValue),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Color(grade.colorValue).withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(grade.icon, style: const TextStyle(fontSize: 11)),
+          if (showLabel) ...[
+            const SizedBox(width: 3),
+            Text(
+              grade.label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(grade.colorValue),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Admin Grade Adjustment Dialog
+  void _showChangeGradeDialog(BuildContext context, Member member) {
+    final authProvider = context.read<AuthProvider>();
+    final noticeProvider = context.read<NoticeProvider>();
+
+    if (!authProvider.isCurrentUserAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('등급 조절은 관리자만 가능합니다. 🔒'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    MemberGrade selectedGrade = member.grade;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.workspace_premium_rounded,
+                      color: Color(0xFFD97706), size: 24),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${member.nickname} 회원 등급 조절',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '관리자 권한으로 해당 회원의 등급을 변경합니다.',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 18),
+
+              // Grade Selection List
+              ...MemberGrade.values.map((grade) {
+                final isSelected = grade == selectedGrade;
+                return InkWell(
+                  onTap: () => setSheetState(() => selectedGrade = grade),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Color(grade.bgValue)
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected
+                            ? Color(grade.colorValue)
+                            : Colors.grey.shade200,
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(grade.icon, style: const TextStyle(fontSize: 20)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                grade.label,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected
+                                      ? Color(grade.colorValue)
+                                      : AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                grade == MemberGrade.admin
+                                    ? '회원 삭제 및 관리자 기능 전권 보유'
+                                    : grade == MemberGrade.vip
+                                        ? '우수 활동 회원'
+                                        : grade == MemberGrade.regular
+                                            ? '정규 가족 구성원'
+                                            : '신규 가입 기본 등급',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isSelected)
+                          Icon(Icons.check_circle_rounded,
+                              color: Color(grade.colorValue), size: 22),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+
+              // Save Button
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await authProvider.updateMemberGrade(
+                        member.id, selectedGrade);
+                    await noticeProvider.updateMemberGrade(
+                        member.id, selectedGrade);
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                              '${member.nickname}님의 등급이 [${selectedGrade.label}]으로 변경되었습니다. ✨'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F4C81),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text(
+                    '등급 변경 적용',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showAddEditMemberDialog(BuildContext context, {Member? memberToEdit}) {
     final provider = context.read<NoticeProvider>();
     final authProvider = context.read<AuthProvider>();
@@ -56,7 +261,7 @@ class MembersScreen extends StatelessWidget {
 
     String selectedEmoji = memberToEdit?.emoji ?? '🐟';
     int selectedColor = memberToEdit?.colorValue ?? 0xFF0F4C81;
-    bool isAdmin = memberToEdit?.isAdmin ?? false;
+    MemberGrade selectedGrade = memberToEdit?.grade ?? MemberGrade.general;
 
     showModalBottomSheet(
       context: context,
@@ -275,52 +480,43 @@ class MembersScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
 
-                    // Admin Privilege Toggle (Only Admin can grant/revoke)
+                    // Grade Selection (Only Admin can modify)
                     if (isCurrentAdmin) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
+                      const Text(
+                        '회원 등급 설정 (관리자 전용)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: [
-                            const Icon(Icons.admin_panel_settings_rounded,
-                                color: Color(0xFFD97706), size: 22),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '관리자 권한 부여',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF92400E),
-                                    ),
-                                  ),
-                                  Text(
-                                    '회원 삭제 및 관리자 기능을 수행할 수 있습니다.',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFFB45309),
-                                    ),
-                                  ),
-                                ],
+                          children: MemberGrade.values.map((grade) {
+                            final isSel = grade == selectedGrade;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(grade.icon),
+                                    const SizedBox(width: 4),
+                                    Text(grade.label),
+                                  ],
+                                ),
+                                selected: isSel,
+                                selectedColor: Color(grade.bgValue),
+                                onSelected: (val) {
+                                  if (val) {
+                                    setModalState(() => selectedGrade = grade);
+                                  }
+                                },
                               ),
-                            ),
-                            Switch(
-                              value: isAdmin,
-                              activeThumbColor: const Color(0xFFD97706),
-                              activeTrackColor: const Color(0xFFFDE68A),
-                              onChanged: (val) {
-                                setModalState(() => isAdmin = val);
-                              },
-                            ),
-                          ],
+                            );
+                          }).toList(),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -345,6 +541,8 @@ class MembersScreen extends StatelessWidget {
                             return;
                           }
 
+                          final isAdmin = (selectedGrade == MemberGrade.admin);
+
                           if (isEditing) {
                             final updated = memberToEdit.copyWith(
                               name: name.isNotEmpty ? name : nickname,
@@ -352,6 +550,7 @@ class MembersScreen extends StatelessWidget {
                               role: role.isNotEmpty ? role : '가족 구성원',
                               emoji: selectedEmoji,
                               colorValue: selectedColor,
+                              grade: selectedGrade,
                               isAdmin: isAdmin,
                             );
                             provider.updateMember(updated);
@@ -371,6 +570,7 @@ class MembersScreen extends StatelessWidget {
                               role: role.isNotEmpty ? role : '가족 구성원',
                               emoji: selectedEmoji,
                               colorValue: selectedColor,
+                              grade: selectedGrade,
                               isAdmin: isAdmin,
                               createdAt: DateTime.now(),
                             );
@@ -612,33 +812,8 @@ class MembersScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          if (currentMember.isAdmin || isCurrentUserAdmin) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF59E0B),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.shield_rounded,
-                                      size: 11, color: Colors.white),
-                                  SizedBox(width: 3),
-                                  Text(
-                                    '관리자',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
+                          _buildGradeBadge(currentMember.grade),
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
@@ -700,12 +875,12 @@ class MembersScreen extends StatelessWidget {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.verified_user_rounded,
+                  Icon(Icons.workspace_premium_rounded,
                       size: 20, color: Color(0xFFD97706)),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      '👑 관리자 권한 활성화: 회원 계정 삭제(강퇴) 및 권한 설정이 가능합니다.',
+                      '👑 관리자 모드: 회원 등급 조절(관리자/우수/정회원/일반) 및 강퇴 권한이 활성화되어 있습니다.',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -746,7 +921,7 @@ class MembersScreen extends StatelessWidget {
           Row(
             children: [
               const Text(
-                '가족 명단 및 활동 통계',
+                '가족 명단 및 등급 현황',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -819,37 +994,16 @@ class MembersScreen extends StatelessWidget {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (member.isAdmin) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFFEF3C7),
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                          border: Border.all(
-                                              color: const Color(0xFFFCD34D)),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.shield_rounded,
-                                                size: 11,
-                                                color: Color(0xFFD97706)),
-                                            SizedBox(width: 2),
-                                            Text(
-                                              '관리자',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: Color(0xFF92400E),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
+                                    const SizedBox(width: 6),
+                                    // Grade Badge
+                                    InkWell(
+                                      onTap: isCurrentUserAdmin
+                                          ? () => _showChangeGradeDialog(
+                                              context, member)
+                                          : null,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: _buildGradeBadge(member.grade),
+                                    ),
                                     if (isMe) ...[
                                       const SizedBox(width: 6),
                                       Container(
@@ -911,7 +1065,7 @@ class MembersScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       const Divider(height: 1, color: AppColors.divider),
                       const SizedBox(height: 6),
-                      // Actions row: Switch, Edit, Admin delete/grant
+                      // Actions row: Switch, Edit, Grade, Delete
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -945,38 +1099,18 @@ class MembersScreen extends StatelessWidget {
                               memberToEdit: member,
                             ),
                           ),
-                          // Admin controls for member management
+                          // Admin controls: Grade Adjust & Delete
                           if (isCurrentUserAdmin && !isMe) ...[
                             IconButton(
-                              icon: Icon(
-                                member.isAdmin
-                                    ? Icons.shield_rounded
-                                    : Icons.shield_outlined,
-                                size: 18,
-                                color: member.isAdmin
-                                    ? const Color(0xFFD97706)
-                                    : Colors.grey,
+                              icon: const Icon(
+                                Icons.workspace_premium_rounded,
+                                size: 19,
+                                color: Color(0xFFD97706),
                               ),
-                              tooltip:
-                                  member.isAdmin ? '관리자 권한 해제' : '관리자 권한 부여',
+                              tooltip: '회원 등급 조절 (관리자 전용)',
                               visualDensity: VisualDensity.compact,
-                              onPressed: () async {
-                                await authProvider.toggleAdminRole(member.id);
-                                provider.updateMember(
-                                    member.copyWith(isAdmin: !member.isAdmin));
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        !member.isAdmin
-                                            ? '${member.nickname}님에게 관리자 권한이 부여되었습니다. 👑'
-                                            : '${member.nickname}님의 관리자 권한이 해제되었습니다.',
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                }
-                              },
+                              onPressed: () =>
+                                  _showChangeGradeDialog(context, member),
                             ),
                             IconButton(
                               icon: const Icon(Icons.person_remove_rounded,
@@ -984,7 +1118,7 @@ class MembersScreen extends StatelessWidget {
                               tooltip: '회원 계정 삭제 및 강퇴 (관리자 전용)',
                               visualDensity: VisualDensity.compact,
                               onPressed: () =>
-                                 _confirmDeleteMemberByAdmin(context, member),
+                                  _confirmDeleteMemberByAdmin(context, member),
                             ),
                           ],
                         ],
