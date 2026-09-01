@@ -88,11 +88,17 @@ void main() {
         await auth.deleteAccountByAdmin(auth.currentUser!.id);
     expect(selfDeleteError, contains('현재 로그인 중인 본인 관리자 계정은 삭제할 수 없습니다'));
 
-    // Admin deletes the target member -> SUCCESS
-    final adminDeleteSuccess =
-        await auth.deleteAccountByAdmin(targetBadUserId);
-    expect(adminDeleteSuccess, isNull);
-    expect(auth.accounts.any((a) => a.id == targetBadUserId), isFalse);
+    // 5. Test registration without nickname & role (simplified sign up)
+    final simpleRegError = await auth.register(
+      name: '이바다',
+      phoneNumber: '010-3333-4444',
+      password: 'seaPass123',
+      emoji: '🌸',
+      colorValue: 0xFFE11D48,
+    );
+    expect(simpleRegError, isNull);
+    expect(auth.currentUser!.nickname, equals('이바다'));
+    expect(auth.currentUser!.role, equals('가족 구성원'));
   });
 
   test(

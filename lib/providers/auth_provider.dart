@@ -116,8 +116,8 @@ class AuthProvider with ChangeNotifier {
     required String name,
     required String phoneNumber,
     required String password,
-    required String nickname,
-    required String role,
+    String? nickname,
+    String? role,
     required String emoji,
     required int colorValue,
   }) async {
@@ -131,9 +131,6 @@ class AuthProvider with ChangeNotifier {
     if (password.length < 4) {
       return '비밀번호는 최소 4자리 이상 입력해 주세요.';
     }
-    if (nickname.trim().isEmpty) {
-      return '가족 내 닉네임을 입력해 주세요.';
-    }
 
     // Check if phone number is already registered
     final isAlreadyRegistered = _accounts.any((a) =>
@@ -145,16 +142,20 @@ class AuthProvider with ChangeNotifier {
     }
 
     final isFirstUser = _accounts.isEmpty;
+    final displayNickname = (nickname != null && nickname.trim().isNotEmpty)
+        ? nickname.trim()
+        : name.trim();
+    final memberRole = (role != null && role.trim().isNotEmpty)
+        ? role.trim()
+        : (isFirstUser ? '총괄 관리자' : '가족 구성원');
 
     final newMember = Member(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
       phoneNumber: cleanPhone,
       passwordHash: Member.hashPassword(password),
-      nickname: nickname.trim(),
-      role: role.trim().isNotEmpty
-          ? role.trim()
-          : (isFirstUser ? '총괄 관리자' : '가족 구성원'),
+      nickname: displayNickname,
+      role: memberRole,
       emoji: emoji,
       colorValue: colorValue,
       isAdmin: isFirstUser, // First registered user is Admin!

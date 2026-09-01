@@ -19,8 +19,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
-  final TextEditingController _nicknameController = TextEditingController();
-  final TextEditingController _roleController = TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -66,8 +64,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _nicknameController.dispose();
-    _roleController.dispose();
     super.dispose();
   }
 
@@ -112,10 +108,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       name: _nameController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
       password: _passwordController.text,
-      nickname: _nicknameController.text.trim(),
-      role: _roleController.text.trim().isNotEmpty
-          ? _roleController.text.trim()
-          : '가족 구성원',
       emoji: _selectedEmoji,
       colorValue: _selectedColor,
     );
@@ -244,7 +236,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  '입력하신 이름과 전화번호는 암호화되어 안전하게 보관되며, 외부에 절대 노출되지 않습니다. (가족 피드에는 닉네임만 표시됩니다)',
+                                  '입력하신 이름과 전화번호는 암호화되어 안전하게 보관되며, 외부에 절대 노출되지 않습니다. (피드에는 이름 마스킹 처리 지원)',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF1E3A8A),
@@ -305,7 +297,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     TextFormField(
                       controller: _nameController,
                       decoration: InputDecoration(
-                        hintText: '예: 김참치 (외부 비공개)',
+                        hintText: '예: 김참치',
                         hintStyle: TextStyle(
                             color: Colors.grey.shade400, fontSize: 14),
                         prefixIcon: const Icon(Icons.badge_rounded,
@@ -444,63 +436,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 14),
-
-                    // 5. Family Nickname Field
-                    const Text(
-                      '가족 내 닉네임 (게시글 및 댓글에 표시)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _nicknameController,
-                      decoration: InputDecoration(
-                        hintText: '예: 참치대장 👑, 참치퀸 🌸',
-                        hintStyle: TextStyle(
-                            color: Colors.grey.shade400, fontSize: 14),
-                        prefixIcon: const Icon(Icons.face_rounded,
-                            color: Colors.black45, size: 20),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 14),
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return '가족 닉네임을 입력해 주세요.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // 6. Role Field
-                    const Text(
-                      '가족 내 역할 / 담당',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: _roleController,
-                      decoration: InputDecoration(
-                        hintText: '예: 아빠 / 모임총괄, 첫째 / 일정매니저',
-                        hintStyle: TextStyle(
-                            color: Colors.grey.shade400, fontSize: 14),
-                        prefixIcon: const Icon(Icons.work_outline_rounded,
-                            color: Colors.black45, size: 20),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 14),
-                      ),
-                    ),
                     const SizedBox(height: 18),
 
-                    // 7. Emoji Avatar Picker
+                    // 5. Emoji Avatar Picker
                     const Text(
                       '프로필 캐릭터 선택',
                       style: TextStyle(
@@ -543,7 +481,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     const SizedBox(height: 18),
 
-                    // 8. Theme Color Picker
+                    // 6. Theme Color Picker
                     const Text(
                       '대표 색상 선택',
                       style: TextStyle(
