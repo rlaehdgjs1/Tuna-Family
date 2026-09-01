@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/notice.dart';
+import '../providers/auth_provider.dart';
 import '../providers/notice_provider.dart';
 import '../providers/music_provider.dart';
 import '../utils/app_theme.dart';
@@ -248,6 +249,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         } else if (value == 'music') {
                           MusicPlayerSheet.show(context);
+                        } else if (value == 'logout') {
+                          context.read<AuthProvider>().logout();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('로그아웃되었습니다.'),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
                         }
                       },
                       itemBuilder: (context) => [
@@ -270,6 +279,18 @@ class _HomeScreenState extends State<HomeScreen> {
                                   size: 18, color: AppColors.textSecondary),
                               SizedBox(width: 8),
                               Text('기본 샘플 데이터로 복원'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem(
+                          value: 'logout',
+                          child: Row(
+                            children: [
+                              Icon(Icons.logout_rounded,
+                                  size: 18, color: AppColors.error),
+                              SizedBox(width: 8),
+                              Text('참치패밀리 로그아웃',
+                                  style: TextStyle(color: AppColors.error)),
                             ],
                           ),
                         ),

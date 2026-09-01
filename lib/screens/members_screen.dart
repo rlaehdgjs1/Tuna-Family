@@ -478,7 +478,7 @@ class MembersScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${currentMember.name} • ${currentMember.role}',
+                        '${currentMember.maskedName} • ${currentMember.role}',
                         style: TextStyle(
                           fontSize: 13,
                           color: Colors.white.withValues(alpha: 0.85),
@@ -632,7 +632,7 @@ class MembersScreen extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${member.name} • ${member.role}',
+                                  '${member.maskedName} • ${member.role}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: AppColors.textSecondary,

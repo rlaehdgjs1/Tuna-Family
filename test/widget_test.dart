@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tuna_family/main.dart';
+import 'package:tuna_family/providers/auth_provider.dart';
 import 'package:tuna_family/providers/notice_provider.dart';
 import 'package:tuna_family/providers/music_provider.dart';
 import 'package:tuna_family/models/notice.dart';
 import 'package:tuna_family/models/member.dart';
+import 'package:tuna_family/screens/login_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -13,23 +15,71 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Tuna Family App renders correctly with empty initial state and creates notice',
+  testWidgets('Tuna Family App renders LoginScreen when logged out',
       (WidgetTester tester) async {
     await tester.pumpWidget(const TunaFamilyApp());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    // Verify Tuna Family widgets appear
-    expect(find.text('참치패밀리'), findsWidgets);
-    expect(find.text('가족 공지 및 일정 소통방'), findsOneWidget);
-    expect(find.text('공지피드'), findsOneWidget);
-
-    // Verify clean empty state is shown initially
-    expect(find.text('등록된 공지사항이 없습니다'), findsOneWidget);
-    expect(find.text('첫 공지 작성하기'), findsOneWidget);
+    // Verify Login Screen appears as gateway
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.text('로그인'), findsWidgets);
+    expect(find.text('참치패밀리 로그인'), findsOneWidget);
+    expect(find.text('휴대폰 번호와 비밀번호로 로그인하세요.'), findsOneWidget);
+    expect(find.text('휴대폰 번호'), findsOneWidget);
+    expect(find.text('비밀번호'), findsOneWidget);
+    expect(find.text('새 계정 만들기 (회원가입)'), findsOneWidget);
   });
 
-  test('NoticeProvider starts with 0 notices and handles notice creation & notification', () async {
+  test('AuthProvider register, login, password hash, and privacy masking test',
+      () async {
+    final auth = AuthProvider();
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    expect(auth.isLoggedIn, isFalse);
+
+    // 1. Register Account
+    final regError = await auth.register(
+      name: '홍길동',
+      phoneNumber: '010-1234-5678',
+      password: 'password123',
+      nickname: '골드참치 🌟',
+      role: '삼촌 / 요리',
+      emoji: '🌟',
+      colorValue: 0xFF0F4C81,
+    );
+
+    expect(regError, isNull);
+    expect(auth.isLoggedIn, isTrue);
+    expect(auth.currentUser, isNotNull);
+    expect(auth.currentUser!.nickname, equals('골드참치 🌟'));
+
+    // Privacy Masking Verification (No Leakage)
+    expect(auth.currentUser!.maskedPhone, equals('010-****-5678'));
+    expect(auth.currentUser!.maskedName, equals('홍*동'));
+    expect(auth.currentUser!.passwordHash, isNot(equals('password123')));
+
+    // 2. Logout
+    await auth.logout();
+    expect(auth.isLoggedIn, isFalse);
+
+    // 3. Failed Login (Wrong Password)
+    final wrongPassError =
+        await auth.login('010-1234-5678', 'wrong_password');
+    expect(wrongPassError, isNotNull);
+    expect(wrongPassError, contains('비밀번호가 일치하지 않습니다'));
+    expect(auth.isLoggedIn, isFalse);
+
+    // 4. Successful Login
+    final loginSuccess = await auth.login('010-1234-5678', 'password123');
+    expect(loginSuccess, isNull);
+    expect(auth.isLoggedIn, isTrue);
+    expect(auth.currentUser!.nickname, equals('골드참치 🌟'));
+  });
+
+  test(
+      'NoticeProvider starts with 0 notices and handles notice creation & notification',
+      () async {
     final provider = NoticeProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
@@ -102,13 +152,12 @@ void main() {
       emoji: '👵',
       colorValue: 0xFFE11D48,
     );
+
     await provider.updateMember(updatedMember);
-    expect(
-        provider
-            .members
-            .firstWhere((m) => m.id == 'mem_test_grandma')
-            .nickname,
-        equals('요리왕할머니 👵'));
+    final found =
+        provider.members.firstWhere((m) => m.id == 'mem_test_grandma');
+    expect(found.nickname, equals('요리왕할머니 👵'));
+    expect(found.role, equals('할머니 / 수석셰프'));
 
     // 3. Delete Member
     final deleteResult = await provider.deleteMember('mem_test_grandma');
@@ -149,7 +198,10 @@ void main() {
       authorEmoji: '👑',
       category: NoticeCategory.notice,
       createdAt: DateTime.now(),
-      imageUrls: ['https://example.com/photo1.jpg', 'https://example.com/photo2.jpg'],
+      imageUrls: [
+        'https://example.com/photo1.jpg',
+        'https://example.com/photo2.jpg'
+      ],
       videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
     );
 
@@ -159,6 +211,7 @@ void main() {
     expect(restored.id, equals('media_notice_1'));
     expect(restored.imageUrls.length, equals(2));
     expect(restored.imageUrls.first, equals('https://example.com/photo1.jpg'));
-    expect(restored.videoUrl, equals('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+    expect(restored.videoUrl,
+        equals('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
   });
 }

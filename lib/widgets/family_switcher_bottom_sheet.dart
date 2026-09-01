@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/notice_provider.dart';
 import '../utils/app_theme.dart';
 import 'member_avatar.dart';
@@ -21,6 +22,7 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<NoticeProvider>();
+    final authProvider = context.watch<AuthProvider>();
     final members = provider.members;
     final currentMember = provider.currentMember;
 
@@ -45,7 +47,7 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
             Row(
               children: [
                 const Text(
-                  '🐟 참치패밀리 구성원 전환',
+                  '🐟 참치패밀리 구성원 관리',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -100,13 +102,13 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
                           vertical: 12, horizontal: 10),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppColors.primaryLight.withValues(alpha: 0.4)
+                            ? AppColors.primaryLight.withValues(alpha: 0.3)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
                         children: [
-                          MemberAvatar(member: member, size: 44),
+                          MemberAvatar(member: member, size: 42),
                           const SizedBox(width: 14),
                           Expanded(
                             child: Column(
@@ -114,28 +116,23 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
                               children: [
                                 Row(
                                   children: [
-                                    Flexible(
-                                      child: Text(
-                                        member.nickname,
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.w600,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                    Text(
+                                      member.nickname,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
                                     if (isSelected) ...[
                                       const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 8, vertical: 2),
+                                            horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
                                           color: AppColors.primary,
                                           borderRadius:
-                                              BorderRadius.circular(10),
+                                              BorderRadius.circular(8),
                                         ),
                                         child: const Text(
                                           '현재 접속',
@@ -151,7 +148,7 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${member.name} • ${member.role}',
+                                  '${member.maskedName} • ${member.role}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey.shade600,
@@ -179,7 +176,43 @@ class FamilySwitcherBottomSheet extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+
+            // Logout Button
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  await authProvider.logout();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('로그아웃되었습니다.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.logout_rounded,
+                    size: 18, color: AppColors.error),
+                label: const Text(
+                  '참치패밀리 로그아웃',
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(
+                      color: AppColors.error.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
