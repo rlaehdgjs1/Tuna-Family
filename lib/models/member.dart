@@ -10,6 +10,7 @@ class Member {
   final int colorValue;
   final String? phoneNumber;
   final String? passwordHash;
+  final bool isAdmin;
   final DateTime? createdAt;
 
   const Member({
@@ -21,12 +22,13 @@ class Member {
     required this.colorValue,
     this.phoneNumber,
     this.passwordHash,
+    this.isAdmin = false,
     this.createdAt,
   });
 
   /// Hash password using SHA-256 with salt for security
   static String hashPassword(String password) {
-    final salt = 'tuna_family_secure_salt_2026_';
+    const salt = 'tuna_family_secure_salt_2026_';
     final bytes = utf8.encode(salt + password);
     return sha256.convert(bytes).toString();
   }
@@ -85,6 +87,7 @@ class Member {
     int? colorValue,
     String? phoneNumber,
     String? passwordHash,
+    bool? isAdmin,
     DateTime? createdAt,
   }) {
     return Member(
@@ -96,6 +99,7 @@ class Member {
       colorValue: colorValue ?? this.colorValue,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       passwordHash: passwordHash ?? this.passwordHash,
+      isAdmin: isAdmin ?? this.isAdmin,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -109,6 +113,7 @@ class Member {
         'colorValue': colorValue,
         'phoneNumber': phoneNumber,
         'passwordHash': passwordHash,
+        'isAdmin': isAdmin,
         'createdAt': createdAt?.toIso8601String(),
       };
 
@@ -121,6 +126,7 @@ class Member {
         colorValue: json['colorValue'] as int? ?? 0xFF1976D2,
         phoneNumber: json['phoneNumber'] as String?,
         passwordHash: json['passwordHash'] as String?,
+        isAdmin: json['isAdmin'] as bool? ?? false,
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)
             : null,

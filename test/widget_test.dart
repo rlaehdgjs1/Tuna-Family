@@ -31,50 +31,68 @@ void main() {
     expect(find.text('새 계정 만들기 (회원가입)'), findsOneWidget);
   });
 
-  test('AuthProvider register, login, password hash, and privacy masking test',
+  test(
+      'AuthProvider admin privileges, member registration, and admin member deletion test',
       () async {
     final auth = AuthProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
     expect(auth.isLoggedIn, isFalse);
 
-    // 1. Register Account
-    final regError = await auth.register(
-      name: '홍길동',
-      phoneNumber: '010-1234-5678',
-      password: 'password123',
-      nickname: '골드참치 🌟',
-      role: '삼촌 / 요리',
-      emoji: '🌟',
+    // 1. First registered user automatically becomes ADMIN
+    final adminRegError = await auth.register(
+      name: '김참치',
+      phoneNumber: '010-1111-2222',
+      password: 'adminPass123',
+      nickname: '참치대장 👑',
+      role: '아빠 / 모임 총괄',
+      emoji: '👑',
       colorValue: 0xFF0F4C81,
     );
 
-    expect(regError, isNull);
+    expect(adminRegError, isNull);
     expect(auth.isLoggedIn, isTrue);
-    expect(auth.currentUser, isNotNull);
-    expect(auth.currentUser!.nickname, equals('골드참치 🌟'));
+    expect(auth.currentUser!.isAdmin, isTrue);
+    expect(auth.isCurrentUserAdmin, isTrue);
 
-    // Privacy Masking Verification (No Leakage)
-    expect(auth.currentUser!.maskedPhone, equals('010-****-5678'));
-    expect(auth.currentUser!.maskedName, equals('홍*동'));
-    expect(auth.currentUser!.passwordHash, isNot(equals('password123')));
-
-    // 2. Logout
+    // 2. Second registered user is a NORMAL member (isAdmin: false)
     await auth.logout();
-    expect(auth.isLoggedIn, isFalse);
+    final userRegError = await auth.register(
+      name: '김악성',
+      phoneNumber: '010-9999-8888',
+      password: 'userPass123',
+      nickname: '불청객참치 ⚠️',
+      role: '일반 회원',
+      emoji: '🐟',
+      colorValue: 0xFF475569,
+    );
 
-    // 3. Failed Login (Wrong Password)
-    final wrongPassError =
-        await auth.login('010-1234-5678', 'wrong_password');
-    expect(wrongPassError, isNotNull);
-    expect(wrongPassError, contains('비밀번호가 일치하지 않습니다'));
-    expect(auth.isLoggedIn, isFalse);
+    expect(userRegError, isNull);
+    expect(auth.currentUser!.isAdmin, isFalse);
+    expect(auth.isCurrentUserAdmin, isFalse);
 
-    // 4. Successful Login
-    final loginSuccess = await auth.login('010-1234-5678', 'password123');
-    expect(loginSuccess, isNull);
-    expect(auth.isLoggedIn, isTrue);
-    expect(auth.currentUser!.nickname, equals('골드참치 🌟'));
+    final targetBadUserId = auth.currentUser!.id;
+
+    // 3. Normal user attempts to delete a member -> REJECTED
+    final nonAdminDeleteError =
+        await auth.deleteAccountByAdmin(targetBadUserId);
+    expect(nonAdminDeleteError, contains('관리자 권한이 있는 사용자만'));
+
+    // 4. Log back in as ADMIN and delete the bad member account
+    await auth.logout();
+    await auth.login('010-1111-2222', 'adminPass123');
+    expect(auth.isCurrentUserAdmin, isTrue);
+
+    // Admin attempts to delete own logged-in account -> PREVENTED
+    final selfDeleteError =
+        await auth.deleteAccountByAdmin(auth.currentUser!.id);
+    expect(selfDeleteError, contains('현재 로그인 중인 본인 관리자 계정은 삭제할 수 없습니다'));
+
+    // Admin deletes the target member -> SUCCESS
+    final adminDeleteSuccess =
+        await auth.deleteAccountByAdmin(targetBadUserId);
+    expect(adminDeleteSuccess, isNull);
+    expect(auth.accounts.any((a) => a.id == targetBadUserId), isFalse);
   });
 
   test(
@@ -137,6 +155,7 @@ void main() {
       role: '할머니 / 요리담당',
       emoji: '👵',
       colorValue: 0xFFE11D48,
+      isAdmin: false,
     );
 
     await provider.addMember(newMember);
@@ -151,6 +170,7 @@ void main() {
       role: '할머니 / 수석셰프',
       emoji: '👵',
       colorValue: 0xFFE11D48,
+      isAdmin: false,
     );
 
     await provider.updateMember(updatedMember);

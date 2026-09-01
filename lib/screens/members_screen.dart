@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../providers/auth_provider.dart';
 import '../providers/notice_provider.dart';
 import '../models/member.dart';
 import '../utils/app_theme.dart';
@@ -11,7 +12,22 @@ class MembersScreen extends StatelessWidget {
   const MembersScreen({super.key});
 
   static const List<String> availableEmojis = [
-    '👑', '🌸', '🏄‍♂️', '🎨', '🐣', '🐟', '👵', '👴', '🐱', '🐶', '⭐', '💖', '🍕', '🚀', '🧸', '🕶️'
+    '👑',
+    '🌸',
+    '🏄‍♂️',
+    '🎨',
+    '🐣',
+    '🐟',
+    '👵',
+    '👴',
+    '🐱',
+    '🐶',
+    '⭐',
+    '💖',
+    '🍕',
+    '🚀',
+    '🧸',
+    '🕶️'
   ];
 
   static const List<int> availableColors = [
@@ -27,7 +43,9 @@ class MembersScreen extends StatelessWidget {
 
   void _showAddEditMemberDialog(BuildContext context, {Member? memberToEdit}) {
     final provider = context.read<NoticeProvider>();
+    final authProvider = context.read<AuthProvider>();
     final isEditing = memberToEdit != null;
+    final isCurrentAdmin = authProvider.isCurrentUserAdmin;
 
     final nameController =
         TextEditingController(text: memberToEdit?.name ?? '');
@@ -38,6 +56,7 @@ class MembersScreen extends StatelessWidget {
 
     String selectedEmoji = memberToEdit?.emoji ?? '🐟';
     int selectedColor = memberToEdit?.colorValue ?? 0xFF0F4C81;
+    bool isAdmin = memberToEdit?.isAdmin ?? false;
 
     showModalBottomSheet(
       context: context,
@@ -222,7 +241,7 @@ class MembersScreen extends StatelessWidget {
 
                     // Real Name Input
                     const Text(
-                      '실제 이름',
+                      '실제 이름 (외부 비공개)',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -233,7 +252,7 @@ class MembersScreen extends StatelessWidget {
                     TextField(
                       controller: nameController,
                       decoration: const InputDecoration(
-                        hintText: '예: 김순자',
+                        hintText: '예: 김순자 (내부 인증용)',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -254,7 +273,58 @@ class MembersScreen extends StatelessWidget {
                         hintText: '예: 할머니 / 사랑과 요리 담당',
                       ),
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 14),
+
+                    // Admin Privilege Toggle (Only Admin can grant/revoke)
+                    if (isCurrentAdmin) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.admin_panel_settings_rounded,
+                                color: Color(0xFFD97706), size: 22),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '관리자 권한 부여',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF92400E),
+                                    ),
+                                  ),
+                                  Text(
+                                    '회원 삭제 및 관리자 기능을 수행할 수 있습니다.',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: isAdmin,
+                              activeThumbColor: const Color(0xFFD97706),
+                              activeTrackColor: const Color(0xFFFDE68A),
+                              onChanged: (val) {
+                                setModalState(() => isAdmin = val);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Submit Button
                     SizedBox(
@@ -276,15 +346,16 @@ class MembersScreen extends StatelessWidget {
                           }
 
                           if (isEditing) {
-                            final updated = Member(
-                              id: memberToEdit.id,
+                            final updated = memberToEdit.copyWith(
                               name: name.isNotEmpty ? name : nickname,
                               nickname: nickname,
                               role: role.isNotEmpty ? role : '가족 구성원',
                               emoji: selectedEmoji,
                               colorValue: selectedColor,
+                              isAdmin: isAdmin,
                             );
                             provider.updateMember(updated);
+                            authProvider.updateProfile(updated);
                             Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -300,6 +371,8 @@ class MembersScreen extends StatelessWidget {
                               role: role.isNotEmpty ? role : '가족 구성원',
                               emoji: selectedEmoji,
                               colorValue: selectedColor,
+                              isAdmin: isAdmin,
+                              createdAt: DateTime.now(),
                             );
                             provider.addMember(newMember);
                             Navigator.pop(context);
@@ -334,9 +407,33 @@ class MembersScreen extends StatelessWidget {
     );
   }
 
-  void _confirmDeleteMember(BuildContext context, Member member) {
+  /// Admin Member Deletion Handler
+  void _confirmDeleteMemberByAdmin(BuildContext context, Member member) {
     final provider = context.read<NoticeProvider>();
-    final isMe = member.id == provider.currentMember.id;
+    final authProvider = context.read<AuthProvider>();
+
+    // 1. Permission check
+    if (!authProvider.isCurrentUserAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('회원 삭제는 관리자 권한이 필요합니다. 🔒'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // 2. Prevent self-deletion
+    if (authProvider.currentUser?.id == member.id) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('현재 로그인 중인 본인 관리자 계정은 삭제할 수 없습니다.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     if (provider.members.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -351,17 +448,60 @@ class MembersScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: AppColors.error),
-            SizedBox(width: 8),
-            Text('구성원 삭제'),
+            Icon(Icons.person_remove_rounded, color: AppColors.error),
+            SizedBox(width: 10),
+            Text(
+              '회원 계정 강퇴 / 삭제',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
           ],
         ),
-        content: Text(
-          isMe
-              ? '${member.nickname}님은 현재 접속 중인 프로필입니다.\n삭제 시 다른 구성원 프로필로 자동 전환됩니다.\n정말 삭제하시겠습니까?'
-              : '${member.nickname}님을 참치패밀리 구성원에서 삭제하시겠습니까?',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '\'${member.nickname}\' (${member.maskedName}) 님을 참치패밀리에서 강퇴 및 삭제하시겠습니까?',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border:
+                    Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded,
+                      size: 18, color: AppColors.error),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '삭제된 회원은 즉시 앱 로그인이 차단되며 모든 구성원 목록에서 제거됩니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.error,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -369,19 +509,31 @@ class MembersScreen extends StatelessWidget {
             child: const Text('취소'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
             onPressed: () async {
               Navigator.pop(ctx);
+
+              // 1. Delete from AuthProvider accounts
+              final err = await authProvider.deleteAccountByAdmin(member.id);
+              // 2. Delete from NoticeProvider members
               await provider.deleteMember(member.id);
+
               if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('${member.nickname}님이 구성원에서 삭제되었습니다.'),
+                  content: Text(err ?? '${member.nickname} 회원이 삭제(강퇴)되었습니다.'),
+                  backgroundColor:
+                      err == null ? AppColors.textPrimary : AppColors.error,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             },
-            child: const Text('삭제'),
+            child: const Text('삭제 및 강퇴'),
           ),
         ],
       ),
@@ -391,13 +543,15 @@ class MembersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<NoticeProvider>();
+    final authProvider = context.watch<AuthProvider>();
     final members = provider.members;
     final currentMember = provider.currentMember;
     final notices = provider.filteredNotices;
+    final isCurrentUserAdmin = authProvider.isCurrentUserAdmin;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('참치패밀리 구성원'),
+        title: const Text('참치패밀리 구성원 관리'),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_add_alt_1_rounded),
@@ -458,6 +612,33 @@ class MembersScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
+                          if (currentMember.isAdmin || isCurrentUserAdmin) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF59E0B),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.shield_rounded,
+                                      size: 11, color: Colors.white),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    '관리자',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
@@ -506,7 +687,37 @@ class MembersScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // Admin Banner
+          if (isCurrentUserAdmin) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.verified_user_rounded,
+                      size: 20, color: Color(0xFFD97706)),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '👑 관리자 권한 활성화: 회원 계정 삭제(강퇴) 및 권한 설정이 가능합니다.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF92400E),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
 
           // Family stats summary card
           Container(
@@ -608,6 +819,37 @@ class MembersScreen extends StatelessWidget {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
+                                    if (member.isAdmin) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFEF3C7),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          border: Border.all(
+                                              color: const Color(0xFFFCD34D)),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.shield_rounded,
+                                                size: 11,
+                                                color: Color(0xFFD97706)),
+                                            SizedBox(width: 2),
+                                            Text(
+                                              '관리자',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF92400E),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                     if (isMe) ...[
                                       const SizedBox(width: 6),
                                       Container(
@@ -669,7 +911,7 @@ class MembersScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       const Divider(height: 1, color: AppColors.divider),
                       const SizedBox(height: 6),
-                      // Actions row: Switch, Edit, Delete
+                      // Actions row: Switch, Edit, Admin delete/grant
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
@@ -691,7 +933,7 @@ class MembersScreen extends StatelessWidget {
                                 visualDensity: VisualDensity.compact,
                               ),
                             ),
-                            const SizedBox(width: 6),
+                            const SizedBox(width: 4),
                           ],
                           IconButton(
                             icon: const Icon(Icons.edit_outlined,
@@ -703,14 +945,48 @@ class MembersScreen extends StatelessWidget {
                               memberToEdit: member,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline_rounded,
-                                size: 18, color: AppColors.error),
-                            tooltip: '구성원 삭제',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () =>
-                                _confirmDeleteMember(context, member),
-                          ),
+                          // Admin controls for member management
+                          if (isCurrentUserAdmin && !isMe) ...[
+                            IconButton(
+                              icon: Icon(
+                                member.isAdmin
+                                    ? Icons.shield_rounded
+                                    : Icons.shield_outlined,
+                                size: 18,
+                                color: member.isAdmin
+                                    ? const Color(0xFFD97706)
+                                    : Colors.grey,
+                              ),
+                              tooltip:
+                                  member.isAdmin ? '관리자 권한 해제' : '관리자 권한 부여',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () async {
+                                await authProvider.toggleAdminRole(member.id);
+                                provider.updateMember(
+                                    member.copyWith(isAdmin: !member.isAdmin));
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        !member.isAdmin
+                                            ? '${member.nickname}님에게 관리자 권한이 부여되었습니다. 👑'
+                                            : '${member.nickname}님의 관리자 권한이 해제되었습니다.',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.person_remove_rounded,
+                                  size: 18, color: AppColors.error),
+                              tooltip: '회원 계정 삭제 및 강퇴 (관리자 전용)',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () =>
+                                 _confirmDeleteMemberByAdmin(context, member),
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -759,26 +1035,22 @@ class MembersScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String title, String value, IconData icon) {
+  Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: AppColors.primary, size: 22),
-        const SizedBox(height: 6),
+        Icon(icon, size: 20, color: AppColors.primary),
+        const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: AppColors.textPrimary,
           ),
         ),
-        const SizedBox(height: 2),
         Text(
-          title,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textSecondary,
-          ),
+          label,
+          style: const TextStyle(fontSize: 11, color: AppColors.textMuted),
         ),
       ],
     );
@@ -787,7 +1059,7 @@ class MembersScreen extends StatelessWidget {
   Widget _buildDivider() {
     return Container(
       width: 1,
-      height: 36,
+      height: 30,
       color: AppColors.divider,
     );
   }

@@ -18,6 +18,7 @@ class AuthProvider with ChangeNotifier {
   // Getters
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _currentUser != null;
+  bool get isCurrentUserAdmin => _currentUser?.isAdmin ?? false;
   Member? get currentUser => _currentUser;
   List<Member> get accounts => List.unmodifiable(_accounts);
 
@@ -110,7 +111,7 @@ class AuthProvider with ChangeNotifier {
     return null; // Success
   }
 
-  /// Register new user account
+  /// Register new user account (First account registered automatically receives Admin permission)
   Future<String?> register({
     required String name,
     required String phoneNumber,
@@ -143,15 +144,20 @@ class AuthProvider with ChangeNotifier {
       return '이미 가입된 휴대폰 번호입니다.\n해당 번호로 로그인해 주세요.';
     }
 
+    final isFirstUser = _accounts.isEmpty;
+
     final newMember = Member(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
       name: name.trim(),
       phoneNumber: cleanPhone,
       passwordHash: Member.hashPassword(password),
       nickname: nickname.trim(),
-      role: role.trim().isNotEmpty ? role.trim() : '가족 구성원',
+      role: role.trim().isNotEmpty
+          ? role.trim()
+          : (isFirstUser ? '총괄 관리자' : '가족 구성원'),
       emoji: emoji,
       colorValue: colorValue,
+      isAdmin: isFirstUser, // First registered user is Admin!
       createdAt: DateTime.now(),
     );
 
@@ -163,6 +169,52 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
 
     return null; // Success
+  }
+
+  /// Admin deletes a member/user account
+  Future<String?> deleteAccountByAdmin(String targetMemberId) async {
+    if (_currentUser == null || !_currentUser!.isAdmin) {
+      return '관리자 권한이 있는 사용자만 회원을 삭제할 수 있습니다.';
+    }
+
+    if (_currentUser!.id == targetMemberId) {
+      return '현재 로그인 중인 본인 관리자 계정은 삭제할 수 없습니다.';
+    }
+
+    final index = _accounts.indexWhere((a) => a.id == targetMemberId);
+    if (index != -1) {
+      _accounts.removeAt(index);
+      await _saveAccounts();
+      notifyListeners();
+      return null; // Success
+    }
+
+    return '삭제할 회원을 찾을 수 없습니다.';
+  }
+
+  /// Admin toggles another member's admin role
+  Future<String?> toggleAdminRole(String targetMemberId) async {
+    if (_currentUser == null || !_currentUser!.isAdmin) {
+      return '관리자 권한이 필요합니다.';
+    }
+
+    final index = _accounts.indexWhere((a) => a.id == targetMemberId);
+    if (index != -1) {
+      final member = _accounts[index];
+      final updated = member.copyWith(isAdmin: !member.isAdmin);
+      _accounts[index] = updated;
+
+      if (_currentUser?.id == targetMemberId) {
+        _currentUser = updated;
+        await _saveSession();
+      }
+
+      await _saveAccounts();
+      notifyListeners();
+      return null;
+    }
+
+    return '해당 회원을 찾을 수 없습니다.';
   }
 
   /// Logout
