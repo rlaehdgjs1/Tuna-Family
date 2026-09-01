@@ -12,10 +12,10 @@ import '../services/notification_service.dart';
 import '../utils/sample_data.dart';
 
 class NoticeProvider with ChangeNotifier {
-  static const String _noticesKey = 'tuna_family_notices_v1';
+  static const String _noticesKey = 'tuna_family_notices_v3';
   static const String _membersKey = 'tuna_family_members_v1';
   static const String _currentMemberKey = 'tuna_family_current_member_v1';
-  static const String _notificationsKey = 'tuna_family_notifications_v1';
+  static const String _notificationsKey = 'tuna_family_notifications_v3';
 
   List<Notice> _notices = [];
   List<Member> _members = [];

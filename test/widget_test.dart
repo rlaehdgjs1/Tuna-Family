@@ -5,7 +5,6 @@ import 'package:tuna_family/providers/notice_provider.dart';
 import 'package:tuna_family/providers/music_provider.dart';
 import 'package:tuna_family/models/notice.dart';
 import 'package:tuna_family/models/member.dart';
-import 'package:tuna_family/screens/notice_detail_screen.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +13,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('Tuna Family App renders correctly and navigates to detail',
+  testWidgets('Tuna Family App renders correctly with empty initial state and creates notice',
       (WidgetTester tester) async {
     await tester.pumpWidget(const TunaFamilyApp());
     await tester.pump();
@@ -25,40 +24,18 @@ void main() {
     expect(find.text('가족 공지 및 일정 소통방'), findsOneWidget);
     expect(find.text('공지피드'), findsOneWidget);
 
-    // Find and tap a notice card to open NoticeDetailScreen
-    final firstNoticeCard = find.text('제주도 가족 여행 일정 및 숙소 확정 안내 🏝️');
-    if (firstNoticeCard.evaluate().isNotEmpty) {
-      await tester.tap(firstNoticeCard);
-      await tester.pumpAndSettle();
-
-      // Verify NoticeDetailScreen loads successfully with all elements
-      expect(find.byType(NoticeDetailScreen), findsOneWidget);
-      expect(find.text('공지 상세'), findsOneWidget);
-      expect(find.textContaining('가족 공지 확인 현황'), findsOneWidget);
-    }
+    // Verify clean empty state is shown initially
+    expect(find.text('등록된 공지사항이 없습니다'), findsOneWidget);
+    expect(find.text('첫 공지 작성하기'), findsOneWidget);
   });
 
-  test('NoticeProvider CRUD & interaction test including delete', () async {
+  test('NoticeProvider starts with 0 notices and handles notice creation & notification', () async {
     final provider = NoticeProvider();
     await Future.delayed(const Duration(milliseconds: 100));
 
     expect(provider.members.isNotEmpty, isTrue);
-    expect(provider.filteredNotices.isNotEmpty, isTrue);
-
-    final initialCount = provider.filteredNotices.length;
-    final firstNotice = provider.filteredNotices.first;
-
-    // Test Ack Toggle
-    final initialAckCount = firstNotice.readMemberIds.length;
-    await provider.toggleAck(firstNotice.id);
-    final updatedNotice = provider.getNoticeById(firstNotice.id)!;
-    expect(updatedNotice.readMemberIds.length, isNot(initialAckCount));
-
-    // Test Comment Add
-    await provider.addComment(firstNotice.id, '테스트 댓글입니다 🐟');
-    final noticeWithComment = provider.getNoticeById(firstNotice.id)!;
-    expect(noticeWithComment.comments.any((c) => c.content == '테스트 댓글입니다 🐟'),
-        isTrue);
+    // Verified 0 initial notices
+    expect(provider.filteredNotices.isEmpty, isTrue);
 
     // Test Create Notice
     final newNotice = Notice(
@@ -73,12 +50,26 @@ void main() {
     );
 
     await provider.addNotice(newNotice);
-    expect(provider.filteredNotices.length, equals(initialCount + 1));
+    expect(provider.filteredNotices.length, equals(1));
     expect(provider.getNoticeById('test_notice_999'), isNotNull);
+    expect(provider.notifications.isNotEmpty, isTrue);
+
+    // Test Ack Toggle
+    final firstNotice = provider.filteredNotices.first;
+    final initialAckCount = firstNotice.readMemberIds.length;
+    await provider.toggleAck(firstNotice.id);
+    final updatedNotice = provider.getNoticeById(firstNotice.id)!;
+    expect(updatedNotice.readMemberIds.length, isNot(initialAckCount));
+
+    // Test Comment Add
+    await provider.addComment(firstNotice.id, '테스트 댓글입니다 🐟');
+    final noticeWithComment = provider.getNoticeById(firstNotice.id)!;
+    expect(noticeWithComment.comments.any((c) => c.content == '테스트 댓글입니다 🐟'),
+        isTrue);
 
     // Test Delete Notice
     await provider.deleteNotice('test_notice_999');
-    expect(provider.filteredNotices.length, equals(initialCount));
+    expect(provider.filteredNotices.isEmpty, isTrue);
     expect(provider.getNoticeById('test_notice_999'), isNull);
   });
 

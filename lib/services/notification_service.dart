@@ -3,11 +3,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/notice.dart';
 
 class NotificationService {
-  static NotificationService? _instance;
-  factory NotificationService() {
-    _instance ??= NotificationService._internal();
-    return _instance!;
-  }
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
@@ -15,7 +12,7 @@ class NotificationService {
 
   bool _isInitialized = false;
 
-  static const String _channelId = 'tuna_family_channel';
+  static const String _channelId = 'tuna_family_channel_v2';
   static const String _channelName = '참치패밀리 공지 알림';
   static const String _channelDesc = '참치패밀리 새 공지 및 긴급 소식 실시간 푸시 알림';
 
@@ -54,13 +51,24 @@ class NotificationService {
         },
       );
 
-      // 4. Request Android 13+ Notification Permission
+      // 4. Request Android 13+ Notification Permission & Create High Priority Channel
       final androidImplementation = _notificationsPlugin
           .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin>();
 
       if (androidImplementation != null) {
         await androidImplementation.requestNotificationsPermission();
+
+        const channel = AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          description: _channelDesc,
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+          showBadge: true,
+        );
+        await androidImplementation.createNotificationChannel(channel);
       }
 
       _isInitialized = true;
@@ -85,10 +93,15 @@ class NotificationService {
         importance: Importance.max,
         priority: Priority.high,
         showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        channelShowBadge: true,
         icon: '@mipmap/ic_launcher',
+        category: AndroidNotificationCategory.reminder,
+        visibility: NotificationVisibility.public,
         styleInformation: BigTextStyleInformation(
           notice.content,
-          contentTitle: '📢 [${notice.category.label}] ${notice.title}',
+          contentTitle: '📢 [공지] ${notice.title}',
           summaryText: '${notice.authorEmoji} ${notice.authorName}님의 새 공지',
         ),
       );
@@ -108,7 +121,7 @@ class NotificationService {
 
       await _notificationsPlugin.show(
         id: id,
-        title: '📢 [${notice.category.label}] ${notice.title}',
+        title: '📢 [공지] ${notice.title}',
         body: '${notice.authorEmoji} ${notice.authorName}: ${notice.content}',
         notificationDetails: details,
         payload: notice.id,
@@ -137,6 +150,8 @@ class NotificationService {
         channelDescription: _channelDesc,
         importance: Importance.max,
         priority: Priority.high,
+        enableVibration: true,
+        playSound: true,
         icon: '@mipmap/ic_launcher',
       );
 
