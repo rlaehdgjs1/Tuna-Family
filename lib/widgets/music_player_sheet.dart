@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../providers/music_provider.dart';
 import '../utils/app_theme.dart';
 
@@ -481,9 +482,24 @@ class MusicPlayerSheet extends StatelessWidget {
                       ],
                     ),
 
-                    // If YouTube track, show direct YouTube Open button
-                    if (currentTrack.isYouTube) ...[
+                    // If YouTube track, show live in-app YouTube Player view
+                    if (currentTrack.isYouTube &&
+                        currentTrack.youtubeVideoId != null) ...[
                       const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          color: Colors.black,
+                          child: AspectRatio(
+                            aspectRatio: 16 / 9,
+                            child: YoutubePlayer(
+                              controller: musicProvider.ytController,
+                              aspectRatio: 16 / 9,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,
                         height: 38,
@@ -493,7 +509,7 @@ class MusicPlayerSheet extends StatelessWidget {
                           icon: const Icon(Icons.open_in_new_rounded,
                               size: 16, color: Colors.white),
                           label: const Text(
-                            '유튜브 앱 / 브라우저에서 바로 열기 🎬',
+                            '유튜브 앱 / 전체화면으로 열기 🎬',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -874,7 +890,7 @@ class MusicPlayerSheet extends StatelessWidget {
     return InkWell(
       onTap: () {
         if (track.isYouTube) {
-          musicProvider.playTrack(track, autoLaunchYouTube: true);
+          musicProvider.playTrack(track, autoPlay: true);
         } else {
           musicProvider.playTrack(track);
         }

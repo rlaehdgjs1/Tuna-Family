@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import '../models/notice.dart';
 import '../providers/auth_provider.dart';
 import '../providers/notice_provider.dart';
@@ -452,13 +453,31 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final musicProvider = context.watch<MusicProvider>();
+
     return Scaffold(
-      body: IndexedStack(
-        index: _currentNavIndex,
+      body: Stack(
         children: [
-          _buildNoticeFeedTab(context),
-          const MembersScreen(),
-          const NotificationsScreen(isTab: true),
+          // Embedded YouTube player for continuous in-app background music streaming
+          if (musicProvider.currentTrack.isYouTube &&
+              musicProvider.currentTrack.youtubeVideoId != null)
+            Positioned(
+              left: -9999,
+              top: -9999,
+              width: 1,
+              height: 1,
+              child: YoutubePlayer(
+                controller: musicProvider.ytController,
+              ),
+            ),
+          IndexedStack(
+            index: _currentNavIndex,
+            children: [
+              _buildNoticeFeedTab(context),
+              const MembersScreen(),
+              const NotificationsScreen(isTab: true),
+            ],
+          ),
         ],
       ),
       floatingActionButton: _currentNavIndex == 0

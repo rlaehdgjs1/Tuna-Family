@@ -6,6 +6,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart'
+    hide PlayerState;
 
 enum MusicStartMode {
   lastSelected('내가 선택한 음악 유지', '다음 앱 실행 시 마지막으로 선택한 음악이 그대로 재생됩니다.'),
@@ -117,6 +119,7 @@ class MusicProvider with ChangeNotifier {
   static const String _startModeKey = 'tuna_family_music_start_mode';
 
   final AudioPlayer _audioPlayer = AudioPlayer();
+  YoutubePlayerController? _ytController;
 
   bool _isPlaying = false;
   bool _isAutoPlayEnabled = true;
@@ -167,13 +170,36 @@ class MusicProvider with ChangeNotifier {
 
   List<MusicTrack> get allTracks => [...presetTracks, ..._customTracks];
 
+  YoutubePlayerController get ytController {
+    if (_ytController == null) {
+      final initialId = _currentTrack.isYouTube && _currentTrack.youtubeVideoId != null
+          ? _currentTrack.youtubeVideoId!
+          : '';
+      _ytController = YoutubePlayerController(
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: false,
+          mute: false,
+          loop: true,
+          showVideoAnnotations: false,
+        ),
+      );
+      if (initialId.isNotEmpty) {
+        _ytController!.loadVideoById(videoId: initialId);
+      }
+    }
+    return _ytController!;
+  }
+
   Future<void> _initAudio() async {
     // Audio Player Listeners
     _audioPlayer.setReleaseMode(ReleaseMode.loop);
 
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      _isPlaying = state == PlayerState.playing;
-      notifyListeners();
+      if (!_currentTrack.isYouTube) {
+        _isPlaying = state == PlayerState.playing;
+        notifyListeners();
+      }
     });
 
     _audioPlayer.onDurationChanged.listen((d) {
@@ -240,9 +266,9 @@ class MusicProvider with ChangeNotifier {
         }
       }
 
-      // If autoplay is enabled and not a raw youtube link, start playing audio
-      if (_isAutoPlayEnabled && !_currentTrack.isYouTube) {
-        playTrack(_currentTrack);
+      // If autoplay is enabled, automatically start playing!
+      if (_isAutoPlayEnabled) {
+        playTrack(_currentTrack, autoPlay: true);
       }
     } catch (e) {
       if (kDebugMode) {
@@ -264,32 +290,47 @@ class MusicProvider with ChangeNotifier {
     }
   }
 
-  Future<void> playTrack(MusicTrack track, {bool autoLaunchYouTube = false}) async {
+  /// Automatically plays the given track (Handles both YouTube and Local/URL MP3s)
+  Future<void> playTrack(MusicTrack track, {bool autoPlay = true}) async {
     _currentTrack = track;
     _errorMessage = null;
 
     try {
-      await _audioPlayer.stop();
+      if (track.isYouTube && track.youtubeVideoId != null) {
+        // 1. Stop local audio player
+        await _audioPlayer.stop();
 
-      if (track.isYouTube) {
-        _isPlaying = true;
-        if (autoLaunchYouTube) {
-          await launchYouTube(track);
+        // 2. Load and play video in YouTube Controller
+        final controller = ytController;
+        await controller.loadVideoById(videoId: track.youtubeVideoId!);
+        if (autoPlay) {
+          await controller.playVideo();
         }
-      } else if (track.isCustom) {
-        if (!kIsWeb &&
-            track.customPath != null &&
-            File(track.customPath!).existsSync()) {
-          await _audioPlayer.play(DeviceFileSource(track.customPath!));
-        } else if (track.customBytes != null) {
-          await _audioPlayer.play(BytesSource(track.customBytes!));
+        _isPlaying = autoPlay;
+      } else {
+        // 1. Pause YouTube controller if active
+        if (_ytController != null) {
+          try {
+            await _ytController!.pauseVideo();
+          } catch (_) {}
+        }
+
+        // 2. Play local / URL audio stream
+        if (track.isCustom) {
+          if (!kIsWeb &&
+              track.customPath != null &&
+              File(track.customPath!).existsSync()) {
+            await _audioPlayer.play(DeviceFileSource(track.customPath!));
+          } else if (track.customBytes != null) {
+            await _audioPlayer.play(BytesSource(track.customBytes!));
+          } else if (track.url != null) {
+            await _audioPlayer.play(UrlSource(track.url!));
+          }
+          _isPlaying = true;
         } else if (track.url != null) {
           await _audioPlayer.play(UrlSource(track.url!));
+          _isPlaying = true;
         }
-        _isPlaying = true;
-      } else if (track.url != null) {
-        await _audioPlayer.play(UrlSource(track.url!));
-        _isPlaying = true;
       }
 
       // Always remember the selected track so next launch plays this track!
@@ -305,7 +346,7 @@ class MusicProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Launch YouTube app or browser for the given track
+  /// Launch external YouTube app/browser if desired
   Future<void> launchYouTube(MusicTrack track) async {
     final ytUrl = track.url ??
         (track.youtubeVideoId != null
@@ -321,7 +362,7 @@ class MusicProvider with ChangeNotifier {
     }
   }
 
-  /// Add YouTube Music/Video Track by URL
+  /// Add YouTube Music/Video Track by URL and automatically start in-app playback
   Future<String?> addYouTubeTrack({
     required String url,
     String? title,
@@ -337,7 +378,7 @@ class MusicProvider with ChangeNotifier {
         : 'YouTube BGM 음악 🎬';
     final trackArtist = (artist != null && artist.trim().isNotEmpty)
         ? artist.trim()
-        : 'YouTube 링크 재생';
+        : 'YouTube 자동 재생 음악';
 
     final newTrack = MusicTrack(
       id: 'track_yt_${DateTime.now().millisecondsSinceEpoch}',
@@ -354,8 +395,8 @@ class MusicProvider with ChangeNotifier {
     _customTracks.insert(0, newTrack);
     await _saveCustomTracks();
 
-    // Set as active and play
-    await playTrack(newTrack, autoLaunchYouTube: true);
+    // Automatically select & play in-app immediately!
+    await playTrack(newTrack, autoPlay: true);
     notifyListeners();
 
     return null; // Success
@@ -364,6 +405,9 @@ class MusicProvider with ChangeNotifier {
   Future<void> togglePlayPause() async {
     if (_isPlaying) {
       if (_currentTrack.isYouTube) {
+        if (_ytController != null) {
+          await _ytController!.pauseVideo();
+        }
         _isPlaying = false;
       } else {
         await _audioPlayer.pause();
@@ -371,8 +415,12 @@ class MusicProvider with ChangeNotifier {
       }
     } else {
       if (_currentTrack.isYouTube) {
+        if (_ytController != null) {
+          await _ytController!.playVideo();
+        } else {
+          await playTrack(_currentTrack, autoPlay: true);
+        }
         _isPlaying = true;
-        await launchYouTube(_currentTrack);
       } else {
         await playTrack(_currentTrack);
       }
@@ -463,6 +511,7 @@ class MusicProvider with ChangeNotifier {
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _ytController?.close();
     super.dispose();
   }
 }
