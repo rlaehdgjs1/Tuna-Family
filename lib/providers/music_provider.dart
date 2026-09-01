@@ -118,6 +118,13 @@ class MusicProvider with ChangeNotifier {
   static const String _customTracksKey = 'tuna_family_custom_tracks_v3';
   static const String _startModeKey = 'tuna_family_music_start_mode';
 
+  static const MusicTrack emptyTrack = MusicTrack(
+    id: 'empty_track',
+    title: '등록된 배경음악 없음',
+    artist: '유튜브 링크나 MP3 파일을 추가해 보세요 🎵',
+    icon: '🎵',
+  );
+
   final AudioPlayer _audioPlayer = AudioPlayer();
   YoutubePlayerController? _ytController;
 
@@ -129,31 +136,14 @@ class MusicProvider with ChangeNotifier {
   Duration _totalDuration = Duration.zero;
   String? _errorMessage;
 
-  // Preset Tuna Family Tracks (Royalty-free relaxing/cheerful background streams)
-  static final List<MusicTrack> presetTracks = [
-    const MusicTrack(
-      id: 'track_sea',
-      title: '바다의 멜로디 (Sea Breeze)',
-      artist: '참치패밀리 힐링 사운드',
-      icon: '🌊',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
-    ),
-    const MusicTrack(
-      id: 'track_cozy',
-      title: '따뜻한 가족 카페 (Cozy Living Room)',
-      artist: '어쿠스틱 패밀리',
-      icon: '☕',
-      url:
-          'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=acoustic-guitar-loop-f-91bpm-14578.mp3',
-    ),
-  ];
+  // Preset Tracks deleted as requested (empty)
+  static final List<MusicTrack> presetTracks = [];
 
   late MusicTrack _currentTrack;
   List<MusicTrack> _customTracks = [];
 
   MusicProvider() {
-    _currentTrack = presetTracks[0];
+    _currentTrack = emptyTrack;
     _initAudio();
   }
 
@@ -168,7 +158,7 @@ class MusicProvider with ChangeNotifier {
   List<MusicTrack> get customTracks => _customTracks;
   String? get errorMessage => _errorMessage;
 
-  List<MusicTrack> get allTracks => [...presetTracks, ..._customTracks];
+  List<MusicTrack> get allTracks => [..._customTracks];
 
   YoutubePlayerController get ytController {
     if (_ytController == null) {
@@ -249,26 +239,30 @@ class MusicProvider with ChangeNotifier {
       final tracks = allTracks;
       final savedTrackId = prefs.getString(_selectedTrackKey);
 
-      if (_startMode == MusicStartMode.random && tracks.length > 1) {
-        final randomIndex = Random().nextInt(tracks.length);
-        _currentTrack = tracks[randomIndex];
-      } else if (_startMode == MusicStartMode.cycle && tracks.length > 1) {
-        final currentIndex = tracks.indexWhere((t) => t.id == savedTrackId);
-        final nextIndex = (currentIndex + 1) % tracks.length;
-        _currentTrack = tracks[nextIndex];
-      } else {
-        // Default: MusicStartMode.lastSelected -> Restore the user's chosen track
-        if (savedTrackId != null) {
-          final found = tracks.where((t) => t.id == savedTrackId).firstOrNull;
-          if (found != null) {
-            _currentTrack = found;
+      if (tracks.isNotEmpty) {
+        if (_startMode == MusicStartMode.random && tracks.length > 1) {
+          final randomIndex = Random().nextInt(tracks.length);
+          _currentTrack = tracks[randomIndex];
+        } else if (_startMode == MusicStartMode.cycle && tracks.length > 1) {
+          final currentIndex = tracks.indexWhere((t) => t.id == savedTrackId);
+          final nextIndex = (currentIndex + 1) % tracks.length;
+          _currentTrack = tracks[nextIndex];
+        } else {
+          // Default: MusicStartMode.lastSelected
+          if (savedTrackId != null) {
+            final found = tracks.where((t) => t.id == savedTrackId).firstOrNull;
+            _currentTrack = found ?? tracks.first;
+          } else {
+            _currentTrack = tracks.first;
           }
         }
-      }
 
-      // If autoplay is enabled, automatically start playing!
-      if (_isAutoPlayEnabled) {
-        playTrack(_currentTrack, autoPlay: true);
+        // If autoplay is enabled and tracks exist, start playing
+        if (_isAutoPlayEnabled && _currentTrack.id != emptyTrack.id) {
+          playTrack(_currentTrack, autoPlay: true);
+        }
+      } else {
+        _currentTrack = emptyTrack;
       }
     } catch (e) {
       if (kDebugMode) {
@@ -290,8 +284,9 @@ class MusicProvider with ChangeNotifier {
     }
   }
 
-  /// Automatically plays the given track (Handles both YouTube and Local/URL MP3s)
+  /// Automatically plays the given track
   Future<void> playTrack(MusicTrack track, {bool autoPlay = true}) async {
+    if (track.id == emptyTrack.id) return;
     _currentTrack = track;
     _errorMessage = null;
 
@@ -403,6 +398,12 @@ class MusicProvider with ChangeNotifier {
   }
 
   Future<void> togglePlayPause() async {
+    if (_currentTrack.id == emptyTrack.id && _customTracks.isNotEmpty) {
+      await playTrack(_customTracks.first, autoPlay: true);
+      return;
+    }
+    if (_currentTrack.id == emptyTrack.id) return;
+
     if (_isPlaying) {
       if (_currentTrack.isYouTube) {
         if (_ytController != null) {
@@ -482,7 +483,7 @@ class MusicProvider with ChangeNotifier {
         await _saveCustomTracks();
 
         // Immediately play and save as active track
-        await playTrack(newTrack);
+        await playTrack(newTrack, autoPlay: true);
         notifyListeners();
         return true;
       }
@@ -502,8 +503,18 @@ class MusicProvider with ChangeNotifier {
     await _saveCustomTracks();
 
     if (_currentTrack.id == trackId) {
-      // If deleted track was active, switch to first preset track
-      await playTrack(presetTracks[0]);
+      if (_customTracks.isNotEmpty) {
+        await playTrack(_customTracks.first, autoPlay: true);
+      } else {
+        _currentTrack = emptyTrack;
+        _isPlaying = false;
+        await _audioPlayer.stop();
+        if (_ytController != null) {
+          try {
+            await _ytController!.pauseVideo();
+          } catch (_) {}
+        }
+      }
     }
     notifyListeners();
   }

@@ -279,7 +279,6 @@ class MusicPlayerSheet extends StatelessWidget {
     final currentTrack = musicProvider.currentTrack;
     final isPlaying = musicProvider.isPlaying;
     final customTracks = musicProvider.customTracks;
-    final presetTracks = MusicProvider.presetTracks;
 
     return SafeArea(
       child: Container(
@@ -768,7 +767,7 @@ class MusicPlayerSheet extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // --- My Custom & YouTube Music List (If any) ---
+              // --- My Custom & YouTube Music List ---
               if (customTracks.isNotEmpty) ...[
                 Row(
                   children: [
@@ -832,46 +831,45 @@ class MusicPlayerSheet extends StatelessWidget {
                   },
                 ),
                 const SizedBox(height: 16),
-              ],
-
-              // --- Preset Recommended Tracks ---
-              const Row(
-                children: [
-                  Icon(Icons.queue_music_rounded,
-                      size: 18, color: AppColors.primary),
-                  SizedBox(width: 6),
-                  Text(
-                    '참치패밀리 추천 테마 BGM',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
+              ] else ...[
+                // Empty State when no music tracks are registered
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: presetTracks.length,
-                separatorBuilder: (context, index) =>
-                    const Divider(height: 1, color: AppColors.divider),
-                itemBuilder: (context, index) {
-                  final track = presetTracks[index];
-                  final isCurrent = track.id == currentTrack.id;
-
-                  return _buildTrackTile(
-                    context: context,
-                    musicProvider: musicProvider,
-                    track: track,
-                    isCurrent: isCurrent,
-                    isPlaying: isPlaying,
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.music_note_rounded,
+                          size: 38, color: AppColors.textMuted),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '등록된 배경음악이 없습니다',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '위의 [유튜브 링크 추가] 또는 [MP3 파일 추가]를 눌러\n원하는 음악을 배경음악으로 등록해 보세요! 🎬🎵',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ],
           ),
         ),

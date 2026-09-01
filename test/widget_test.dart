@@ -184,8 +184,8 @@ void main() {
   });
 
   test('MusicTrack model, start modes, and serialization test', () {
-    expect(MusicProvider.presetTracks.length, equals(2));
-    expect(MusicProvider.presetTracks.first.title, contains('바다의 멜로디'));
+    // Preset tracks removed as requested
+    expect(MusicProvider.presetTracks.isEmpty, isTrue);
 
     final track = const MusicTrack(
       id: 'custom_1',
