@@ -202,6 +202,37 @@ void main() {
     expect(restored.title, equals('내 노래.mp3'));
     expect(restored.isCustom, isTrue);
 
+    // YouTube link ID extraction tests
+    expect(MusicTrack.extractYouTubeId('https://youtu.be/dQw4w9WgXcQ'),
+        equals('dQw4w9WgXcQ'));
+    expect(
+        MusicTrack.extractYouTubeId(
+            'https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+        equals('dQw4w9WgXcQ'));
+    expect(
+        MusicTrack.extractYouTubeId(
+            'https://music.youtube.com/watch?v=dQw4w9WgXcQ'),
+        equals('dQw4w9WgXcQ'));
+
+    final ytTrack = const MusicTrack(
+      id: 'yt_1',
+      title: '힐링 피아노',
+      artist: 'YouTube',
+      icon: '🎬',
+      url: 'https://youtu.be/dQw4w9WgXcQ',
+      isCustom: true,
+      isYouTube: true,
+      youtubeVideoId: 'dQw4w9WgXcQ',
+    );
+
+    expect(ytTrack.isYouTube, isTrue);
+    expect(ytTrack.youtubeThumbnailUrl, contains('dQw4w9WgXcQ'));
+
+    final ytJson = ytTrack.toJson();
+    final restoredYt = MusicTrack.fromJson(ytJson);
+    expect(restoredYt.isYouTube, isTrue);
+    expect(restoredYt.youtubeVideoId, equals('dQw4w9WgXcQ'));
+
     expect(MusicStartMode.values.length, equals(3));
   });
 
